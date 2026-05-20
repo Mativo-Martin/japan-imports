@@ -1,0 +1,25 @@
+INFO:__main__:Training on 267 records
+/home/mativo/japan-imports/venv/lib/python3.10/site-packages/sklearn/metrics/_regression.py:492: FutureWarning: 'squared' is deprecated in version 1.4 and will be removed in 1.6. To calculate the root mean squared error, use the function'root_mean_squared_error'.
+  warnings.warn(
+INFO:__main__:MAE: $1,992  RMSE: $3,856  R²: 0.865  MAPE: 12.8%
+WARNING:__main__:ml_model_versions table does not exist — skipping DB registration
+INFO:__main__:Run: alembic revision --autogenerate -m 'add ml_model_versions'
+{
+  "mae": 1992.32,
+  "rmse": 3856.25,
+  "r2": 0.8645,
+  "mape": 12.83,
+  "n_train": 213,
+  "n_test": 54,
+  "feature_importance": {
+    "car_age": 0.0628,
+    "log_mileage": 0.0743,
+    "engine_cc": 0.2624,
+    "make": 0.0952,
+    "model": 0.0353,
+    "fuel_type": 0.0569,
+    "transmission": 0.078,
+    "body_type": 0.3352,
+    "source": 0.0
+  }
+}

@@ -1,0 +1,149 @@
+import httpx, json, logging
+from datetime import datetime
+from tenacity import retry, stop_after_attempt, wait_exponential
+from app.database import SessionLocal
+from app.models.local_listings import LocalListing
+
+logger = logging.getLogger(__name__)
+
+# ── field code lookups (confirmed from live API) ──────────────────────────────
+FUEL_MAP = {
+    "P": "petrol", "D": "diesel",
+    "H": "hybrid", "E": "electric",
+}
+TRANS_MAP = {"A": "automatic", "M": "manual"}
+BODY_MAP  = {
+    "SLN": "saloon",    "SNW": "station wagon",
+    "HBK": "hatchback", "SUV": "suv",
+    "PCK": "pickup",    "VAN": "van",
+    "COU": "coupe",     "CNV": "convertible",
+    "MPV": "minivan",   "TRK": "truck",
+}
+DRIVE_MAP = {"2": "2WD", "4": "4WD", "A": "AWD"}
+
+
+class PeachCarsScraper:
+    """
+    Fetches from the Peach Cars JSON API.
+    Saves two distinct record types to local_listings:
+      - vehicle_used_status == "Locally"   → condition = "local_used"
+      - everything else                    → condition = "imported_used"
+    Both are useful for comparison: locally-used cars are the
+    primary benchmark; imported-but-already-in-Kenya adds context.
+    """
+    BASE_URL  = "https://peachcars.co.ke/cars"
+    SOURCE    = "peachcars"
+    HEADERS   = {
+        "User-Agent": "Mozilla/5.0 (compatible; research-bot/1.0)",
+        "Accept":     "application/json",
+    }
+
+    @retry(
+        stop=stop_after_attempt(4),
+        wait=wait_exponential(multiplier=1, min=3, max=20),
+        reraise=True,
+    )
+    async def _fetch_page(self, client: httpx.AsyncClient, params: dict) -> list:
+        resp = await client.get(self.BASE_URL, params=params, timeout=20.0)
+        resp.raise_for_status()
+        data = resp.json()
+        # Handle both array and paginated-object responses
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            return data.get("results", data.get("data", data.get("cars", [])))
+        return []
+
+    async def run(self) -> dict:
+        """
+        Fetch all pages until empty. Returns count summary.
+        Peach Cars appears to return a full array — we try page params
+        just in case they add pagination later.
+        """
+        all_items, page = [], 1
+        async with httpx.AsyncClient(headers=self.HEADERS) as client:
+            while True:
+                items = await self._fetch_page(client, {"page": page})
+                if not items:
+                    break
+                all_items.extend(items)
+                logger.info("[peachcars] page %d — %d items", page, len(items))
+                if len(items) < 20:      # last page (partial)
+                    break
+                page += 1
+
+        return self._save(all_items)
+
+    def _transform(self, raw: dict) -> dict | None:
+        """Map raw API fields → LocalListing fields."""
+        try:
+            year_str = raw.get("year_of_manufacture", "")
+            year     = int(year_str) if str(year_str).isdigit() else None
+
+            price_kes = raw.get("deal_price") or raw.get("selling_price")
+            if not price_kes or not year:
+                return None
+
+            fuel_code  = raw.get("fuel", "P")
+            trans_code = raw.get("transmission", "A")
+            body_code  = raw.get("body_type", "")
+            status     = raw.get("vehicle_used_status", "")
+
+            return {
+                "source_id":   f"peach_{raw['id']}",
+                "source":      self.SOURCE,
+                "make":        raw.get("make", "").title().strip(),
+                "model":       raw.get("model", "").strip(),
+                "year":        year,
+                "mileage_km":  raw.get("mileage"),
+                "engine_cc":   raw.get("engine_size"),
+                "fuel_type":   FUEL_MAP.get(fuel_code, "petrol"),
+                "transmission":TRANS_MAP.get(trans_code, "automatic"),
+                "body_type":   BODY_MAP.get(body_code, body_code.lower()),
+                "drive_type":  DRIVE_MAP.get(raw.get("drive", "2"), "2WD"),
+                "color":       raw.get("color"),
+                "price_kes":   float(price_kes),
+                "condition":   "local_used" if status == "Locally" else "imported_used",
+                "location":    "Nairobi",    # Peach Cars is Nairobi-based
+                "listing_url": f"https://peachcars.co.ke/cars/{raw.get('slug', '')}",
+                "images_json": json.dumps(raw.get("images", [])[:5]),
+                "scraped_at":  datetime.utcnow(),
+            }
+        except Exception as e:
+            logger.warning("[peachcars] transform error: %s | raw id=%s", e, raw.get("id"))
+            return None
+
+    def _save(self, raw_items: list) -> dict:
+        db  = SessionLocal()
+        stats = {"total_api": len(raw_items), "new": 0, "updated": 0, "skipped": 0}
+        try:
+            for raw in raw_items:
+                rec = self._transform(raw)
+                if not rec:
+                    stats["skipped"] += 1
+                    continue
+
+                existing = db.query(LocalListing).filter_by(
+                    source_id=rec["source_id"]).first()
+
+                if existing:
+                    existing.price_kes  = rec["price_kes"]
+                    existing.mileage_km = rec["mileage_km"]
+                    existing.scraped_at = rec["scraped_at"]
+                    stats["updated"] += 1
+                else:
+                    db.add(LocalListing(**{
+                        k: v for k, v in rec.items()
+                        if k in LocalListing.__table__.columns.keys()
+                    }))
+                    stats["new"] += 1
+
+            db.commit()
+            logger.info("[peachcars] done: %s", stats)
+        except Exception as e:
+            db.rollback()
+            logger.error("[peachcars] DB error: %s", e)
+        finally:
+            db.close()
+        return stats
+

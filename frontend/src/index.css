@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600&display=swap');
+
+:root {
+  --navy:    #001524;
+  --teal:    #15616d;
+  --teal-lt: #1a7a89;
+  --teal-dk: #0e4850;
+  --cream:   #ffecd1;
+  --cream-dk:#f5d9b0;
+  --orange:  #ff7d00;
+  --orange-lt:#ff9633;
+  --orange-dk:#d96900;
+  --rust:    #78290f;
+  --rust-lt: #9a3714;
+  --white:   #ffffff;
+  --surface: #f7f3ee;
+  --surface2:#ede8e0;
+  --text-pri:#001524;
+  --text-sec:#3d5a68;
+  --text-muted:#7a8f99;
+  --border:  rgba(0,21,36,0.10);
+  --border-md:rgba(0,21,36,0.16);
+  --radius-sm:6px;
+  --radius:  10px;
+  --radius-lg:14px;
+  --radius-xl:20px;
+  --shadow-sm:0 1px 3px rgba(0,21,36,0.08);
+  --shadow:  0 2px 8px rgba(0,21,36,0.10);
+  --shadow-lg:0 8px 24px rgba(0,21,36,0.12);
+  --font-sans:'Inter',system-ui,sans-serif;
+  --font-head:'Space Grotesk',system-ui,sans-serif;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;-webkit-font-smoothing:antialiased}
+body{font-family:var(--font-sans);background:var(--surface);color:var(--text-pri);line-height:1.6}
+
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:var(--font-sans)}
+input,select,textarea{font-family:var(--font-sans)}
+
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:10px}
+
+/* Transitions */
+*{transition:background-color .15s,border-color .15s,color .15s,opacity .15s}

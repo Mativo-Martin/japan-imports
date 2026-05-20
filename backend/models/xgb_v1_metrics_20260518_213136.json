@@ -1,0 +1,37 @@
+{
+  "mae": 1565.43,
+  "train_mae": 280.62,
+  "rmse": 3107.42,
+  "r2": 0.9133,
+  "mape": 15.19,
+  "n_train": 213,
+  "n_test": 54,
+  "features": [
+    "car_age",
+    "log_mileage",
+    "engine_cc",
+    "make",
+    "model",
+    "fuel_type",
+    "transmission",
+    "body_type"
+  ],
+  "feature_importance": {
+    "car_age": 0.0486,
+    "log_mileage": 0.0676,
+    "engine_cc": 0.2333,
+    "make": 0.1086,
+    "model": 0.0459,
+    "fuel_type": 0.0753,
+    "transmission": 0.0608,
+    "body_type": 0.36,
+    "source": 0.0
+  },
+  "quantile_metrics": {
+    "q25_residual_usd": 31.32,
+    "q75_residual_usd": 2427.29,
+    "interval_width_usd": 2395.97,
+    "coverage_pct": 92.59,
+    "residual_std_usd": 2684.31
+  }
+}

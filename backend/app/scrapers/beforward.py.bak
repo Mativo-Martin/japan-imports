@@ -1,0 +1,463 @@
+"""
+beforward.py — BE FORWARD scraper (v8 — matched to actual DOM from screenshot)
+
+DOM structure discovered from /tmp/bf_selector_debug.html:
+  • Each vehicle is a row with: .veh-stock-no, .vehicle-price, .make-model
+  • Specs in: .basic-spec-col.year, .basic-spec-col.mileage, .basic-spec-col.engine, .basic-spec-col.trans
+  • Links: .vehicle-url-link
+  • 31 vehicles per page (counts from grep output)
+"""
+
+import re, json, logging, asyncio, certifi
+import httpx
+from bs4 import BeautifulSoup
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from datetime import datetime
+from app.database import SessionLocal
+from app.models.car_listings import CarListing
+
+try:
+    from playwright.async_api import async_playwright, TimeoutError as PWTimeout
+    PLAYWRIGHT_OK = True
+except ImportError:
+    PLAYWRIGHT_OK = False
+    PWTimeout = Exception
+
+logger = logging.getLogger(__name__)
+
+FUEL_MAP = {
+    "gasoline":"petrol","petrol":"petrol","gas":"petrol",
+    "diesel":"diesel","hybrid":"hybrid",
+    "electric":"electric","ev":"electric","phev":"hybrid",
+}
+TRANS_MAP = {
+    "at":"automatic","auto":"automatic","automatic":"automatic",
+    "mt":"manual","manual":"manual","cvt":"cvt",
+}
+
+MAKE_IDS = {
+    "TOYOTA": 1, "HONDA": 2, "NISSAN": 3, "MAZDA": 4,
+    "MITSUBISHI": 5, "SUBARU": 6, "SUZUKI": 7,
+}
+BF_MAKES = list(MAKE_IDS.keys())
+
+
+class BeForwardScraper:
+    SOURCE = "beforward"
+    BASE   = "https://www.beforward.jp"
+
+    HEADERS = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://www.beforward.jp/",
+    }
+    DELAY = 2.5
+
+    def _html_url(self, make: str, page: int) -> str:
+        make_id = MAKE_IDS.get(make, 1)
+        return (
+            f"{self.BASE}/stocklist/"
+            f"make={make_id}/minyear=2018/"
+            f"sar=steering/steering=Right/tp_country_id=27/"
+            f"p={page}/"
+        )
+
+    def _bare_url(self, make: str, page: int) -> str:
+        make_id = MAKE_IDS.get(make, 1)
+        return f"{self.BASE}/stocklist/make={make_id}/p={page}/"
+
+    @retry(
+        stop=stop_after_attempt(4),
+        wait=wait_exponential(multiplier=1, min=4, max=30),
+        retry=retry_if_exception_type(
+            (httpx.HTTPStatusError, httpx.TimeoutException, httpx.ConnectError)
+        ),
+        reraise=True,
+    )
+    async def _fetch_html(self, url: str) -> tuple:
+        await asyncio.sleep(self.DELAY)
+        async with httpx.AsyncClient(
+            headers=self.HEADERS, timeout=30.0,
+            follow_redirects=True, verify=certifi.where(),
+        ) as client:
+            r = await client.get(url)
+            r.raise_for_status()
+            logger.info("[beforward] %s -> %d (%d B)", r.url, r.status_code, len(r.text))
+            return str(r.url), r.text
+
+    # ── SELECTOR DISCOVERY (updated for BF table-row DOM) ──────────────────
+
+    def _find_cards(self, soup: BeautifulSoup, html: str) -> list:
+        """
+        BF renders vehicles as table rows / div rows with these classes:
+          .veh-stock-no, .vehicle-price, .make-model, .vehicle-url-link
+          .basic-spec-col.year, .basic-spec-col.mileage, .basic-spec-col.engine, .basic-spec-col.trans
+        Strategy: find all .veh-stock-no elements and return their parent rows.
+        """
+        strategies = [
+            # Strategy 1: rows that contain veh-stock-no (most reliable anchor)
+            ("tr:has(.veh-stock-no)", lambda s: [
+                row for row in s.find_all("tr")
+                if row.select_one(".veh-stock-no")
+            ]),
+            # Strategy 2: div rows with veh-stock-no
+            ("div:has(.veh-stock-no)", lambda s: [
+                div for div in s.find_all("div")
+                if div.select_one(".veh-stock-no") and len(div.get_text(strip=True)) > 100
+            ]),
+            # Strategy 3: elements with vehicle-url-link (the car link)
+            (".vehicle-url-link parent", lambda s: [
+                a.find_parent(["tr", "div", "li", "article"])
+                for a in s.select(".vehicle-url-link")
+                if a.find_parent(["tr", "div", "li", "article"])
+            ]),
+            # Strategy 4: stocklist-col rows
+            (".stocklist-col parent", lambda s: [
+                col.find_parent(["tr", "div"])
+                for col in s.select(".stocklist-col")
+                if col.find_parent(["tr", "div"])
+            ]),
+            # Strategy 5: basic-spec-row containers
+            (".basic-spec-row", lambda s: s.select(".basic-spec-row")),
+            # Legacy fallbacks
+            ("ul#stockList > li",    lambda s: s.select("ul#stockList > li")),
+            ("li.stockItem",         lambda s: s.select("li.stockItem")),
+            ("li[data-stock-id]",    lambda s: s.select("li[data-stock-id]")),
+            ("div[data-stock-id]",   lambda s: s.select("div[data-stock-id]")),
+            (".carBox",              lambda s: s.select(".carBox")),
+            (".stockItemInner",      lambda s: s.select(".stockItemInner")),
+            ("article.stock-card",   lambda s: s.select("article.stock-card")),
+            (".vehicle-card",        lambda s: s.select(".vehicle-card")),
+        ]
+        for name, fn in strategies:
+            result = fn(soup)
+            if result:
+                # Deduplicate by checking if we've seen this element before
+                seen = set()
+                unique = []
+                for el in result:
+                    el_id = id(el)
+                    if el_id not in seen:
+                        seen.add(el_id)
+                        unique.append(el)
+                if unique:
+                    logger.info("[beforward] selector '%s' -> %d cards", name, len(unique))
+                    return unique
+
+        with open("/tmp/bf_selector_debug.html", "w", encoding="utf-8") as f:
+            f.write(html)
+        logger.warning("[beforward] 0 cards -> HTML saved /tmp/bf_selector_debug.html")
+        return []
+
+    # ── FIELD PARSERS (matched to actual BF DOM classes) ───────────────────
+
+    def _t(self, el, sels, default=None):
+        for s in sels.split(","):
+            n = el.select_one(s.strip())
+            if n: return n.get_text(strip=True)
+        return default
+
+    def _price(self, card):
+        # BF uses .vehicle-price
+        for s in [".vehicle-price",".price",".usd-price","[class*='price']",".stock-price"]:
+            n = card.select_one(s)
+            if n:
+                raw = n.get_text().replace(",","").replace("$","").strip()
+                m = re.search(r"\d+(?:\.\d+)?", raw)
+                if m:
+                    v = float(m.group())
+                    if 300 < v < 500_000: return v
+        return None
+
+    def _year(self, card):
+        # BF uses .basic-spec-col.year or year in make-model text
+        for s in [".basic-spec-col.year",".year",".model-year","[class*='year']"]:
+            n = card.select_one(s)
+            if n:
+                m = re.search(r"(20\d{2})", n.get_text())
+                if m: return int(m.group())
+        # Fallback: extract from make-model text like "2015 TOYOTA SIENTA"
+        make_model = self._t(card, ".make-model")
+        if make_model:
+            m = re.search(r"(20\d{2})", make_model)
+            if m: return int(m.group())
+        m = re.search(r"(20\d{2})", card.get_text())
+        return int(m.group()) if m else None
+
+    def _mileage(self, card):
+        for s in [".basic-spec-col.mileage",".mileage","[class*='mileage']",".km"]:
+            n = card.select_one(s)
+            if n:
+                raw = n.get_text().replace(",","").lower().replace("km","").strip()
+                m = re.search(r"\d+", raw)
+                if m: return int(m.group())
+        return None
+
+    def _engine(self, card):
+        for s in [".basic-spec-col.engine",".engine","[class*='engine']",".cc",".displacement"]:
+            n = card.select_one(s)
+            if n:
+                m = re.search(r"(\d[\d.]*)", n.get_text())
+                if m:
+                    v = float(m.group())
+                    return int(v*1000) if v < 10 else int(v)
+        return None
+
+    def _transmission(self, card):
+        for s in [".basic-spec-col.trans",".trans","[class*='trans'],.gearbox"]:
+            n = card.select_one(s)
+            if n:
+                raw = n.get_text().lower()
+                for k, v in TRANS_MAP.items():
+                    if k in raw:
+                        return v
+        return "automatic"
+
+    def _fuel(self, card):
+        for s in [".basic-spec-col.fuel",".fuel","[class*='fuel']"]:
+            n = card.select_one(s)
+            if n:
+                raw = n.get_text().lower()
+                for k, v in FUEL_MAP.items():
+                    if k in raw:
+                        return v
+        return "petrol"
+
+    def _parse_html_card(self, card):
+        try:
+            # Stock ID from .veh-stock-no
+            sid_el = card.select_one(".veh-stock-no")
+            sid = sid_el.get_text(strip=True) if sid_el else ""
+            if not sid:
+                a = card.select_one("a[href]")
+                if a:
+                    m = re.search(r"/([A-Z]{2}\d{4,}|\d{5,})/", a.get("href",""), re.I)
+                    sid = m.group(1) if m else ""
+            if not sid: return None
+
+            price = self._price(card)
+            year  = self._year(card)
+            if not price or not year or year < 2018: return None
+
+            # Make/Model from .make-model (format: "2015 TOYOTA SIENTA" or "TOYOTA SIENTA")
+            make_model_text = self._t(card, ".make-model") or ""
+            make, model = "?", "?"
+            mm_match = re.search(r"(?:20\d{2}\s+)?([A-Z]+)\s+(.+)", make_model_text, re.I)
+            if mm_match:
+                make = mm_match.group(1).title()
+                model = mm_match.group(2).strip()
+            else:
+                # Fallback: try to get make from the search context or generic parsers
+                make = self._t(card, ".maker,.make-name,.carMake,.maker-name") or "?"
+                model = self._t(card, ".model,.model-name,.carModel,.car-name") or "?"
+
+            fuel_raw  = (self._t(card,".fuel,[class*='fuel']","") or "").lower()
+            trans_raw = (self._t(card,".trans,[class*='trans'],.gearbox","") or "").lower()
+
+            a_tag = card.select_one(".vehicle-url-link,a[href*='/stock/']")
+            href  = a_tag["href"] if a_tag else ""
+            url   = (self.BASE + href) if href.startswith("/") else href or None
+
+            imgs  = [i["src"] for i in card.select("img[src]")
+                     if not any(x in i.get("src","") for x in ["placeholder","logo","icon","cookie"])]
+
+            return {
+                "source_id":    f"bf_{sid}",
+                "url":          url,
+                "make":         make,
+                "model":        model,
+                "year":         year,
+                "mileage_km":   self._mileage(card),
+                "engine_cc":    self._engine(card),
+                "fuel_type":    FUEL_MAP.get(fuel_raw,"petrol"),
+                "transmission": self._transmission(card),
+                "body_type":    (self._t(card,".body-type,[class*='body']","") or "").lower(),
+                "price_usd":    price,
+                "auction_grade":self._t(card,".grade,.auction-grade"),
+                "images":       json.dumps(imgs[:5]),
+                "raw_data":     str(card)[:2000],
+            }
+        except Exception as e:
+            logger.debug("[beforward] card error: %s", e)
+            return None
+
+    def _save_batch(self, listings: list) -> int:
+        if not listings: return 0
+        db = SessionLocal(); new = 0
+        try:
+            for item in listings:
+                ex = db.query(CarListing).filter_by(source_id=item["source_id"]).first()
+                if ex:
+                    ex.price_usd  = item["price_usd"]
+                    ex.updated_at = datetime.utcnow()
+                else:
+                    valid = {k: v for k, v in item.items()
+                             if k in CarListing.__table__.columns.keys()}
+                    db.add(CarListing(source=self.SOURCE, scraped_at=datetime.utcnow(), **valid))
+                    new += 1
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.error("[beforward] DB error: %s", e)
+        finally:
+            db.close()
+        return new
+
+    # ── STEALTH Playwright ──────────────────────────────────────────────────
+
+    async def _playwright_page(self, make: str, page: int) -> list:
+        if not PLAYWRIGHT_OK:
+            logger.error("[beforward] playwright not installed")
+            return []
+
+        urls_to_try = [
+            self._html_url(make, page),
+            self._bare_url(make, page),
+        ]
+        for attempt_url in urls_to_try:
+            listings = await self._playwright_fetch(make, page, attempt_url)
+            if listings:
+                return listings
+        return []
+
+    async def _playwright_fetch(self, make: str, page: int, url: str) -> list:
+        listings = []
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch(
+                headless=True,
+                args=[
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-images",
+                    "--disable-extensions",
+                    "--disable-web-security",
+                    "--disable-features=IsolateOrigins,site-per-process",
+                ]
+            )
+            ctx = await browser.new_context(
+                user_agent=self.HEADERS["User-Agent"],
+                locale="en-US",
+                timezone_id="America/New_York",
+                viewport={"width": 1366, "height": 768},
+                device_scale_factor=1,
+                extra_http_headers={
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+                    "Referer": "https://www.beforward.jp/",
+                },
+            )
+            await ctx.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+                Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+                window.chrome = { runtime: {} };
+            """)
+            await ctx.add_cookies([
+                {"name": "owcc", "value": "ke", "domain": ".beforward.jp", "path": "/"},
+                {"name": "bf_currency", "value": "USD", "domain": ".beforward.jp", "path": "/"},
+                {"name": "bf_lang", "value": "en", "domain": ".beforward.jp", "path": "/"},
+            ])
+
+            pg = await ctx.new_page()
+            try:
+                await pg.goto("https://www.beforward.jp/", wait_until="domcontentloaded", timeout=20_000)
+                await asyncio.sleep(1)
+                await pg.goto(url, wait_until="domcontentloaded", timeout=30_000)
+                await asyncio.sleep(5)
+
+                for _ in range(3):
+                    await pg.evaluate("window.scrollBy(0, 800)")
+                    await asyncio.sleep(1)
+
+                html = await pg.content()
+                soup = BeautifulSoup(html, "html.parser")
+                cards = self._find_cards(soup, html)
+                listings = [c for c in map(self._parse_html_card, cards) if c]
+
+                if not listings:
+                    listings = await self._extract_from_page_scripts(pg)
+
+                logger.info("[beforward/PW] %s p%d: %d listings", make, page, len(listings))
+
+                if not listings:
+                    await pg.screenshot(path="/tmp/bf_debug.png", full_page=True)
+                    with open("/tmp/bf_selector_debug.html", "w", encoding="utf-8") as f:
+                        f.write(html)
+                    logger.warning("[beforward/PW] debug saved: /tmp/bf_debug.png + /tmp/bf_selector_debug.html")
+
+            except PWTimeout:
+                logger.warning("[beforward/PW] timeout on %s", url)
+            except Exception as e:
+                logger.warning("[beforward/PW] %s p%d: %s", make, page, e)
+            finally:
+                await browser.close()
+
+        return listings
+
+    async def _extract_from_page_scripts(self, page) -> list:
+        try:
+            scripts = await page.query_selector_all("script")
+            listings = []
+            for script in scripts:
+                text = await script.inner_text()
+                if "stock" not in text.lower() and "vehicle" not in text.lower():
+                    continue
+                for match in re.finditer(r'\[\s*\{.*?"stock_id".*?\}\s*\]', text, re.DOTALL):
+                    try:
+                        data = json.loads(match.group())
+                        for item in data:
+                            parsed = self._parse_json_item(item)
+                            if parsed: listings.append(parsed)
+                    except Exception:
+                        continue
+            return listings
+        except Exception as e:
+            logger.debug("[beforward] script extraction error: %s", e)
+            return []
+
+    def _parse_json_item(self, item: dict):
+        try:
+            price = item.get("price_usd") or item.get("fob_price") or item.get("price")
+            year  = item.get("year") or item.get("model_year") or item.get("year_of_manufacture")
+            sid   = str(item.get("stock_id") or item.get("id") or item.get("ref_no") or "")
+            if not price or not year or int(year) < 2018 or not sid: return None
+            return {
+                "source_id":    f"bf_{sid}",
+                "url":          f"{self.BASE}/stock/{item.get('slug',sid)}/",
+                "make":         str(item.get("make","")).title(),
+                "model":        str(item.get("model","")),
+                "year":         int(year),
+                "mileage_km":   item.get("mileage") or item.get("mileage_km"),
+                "engine_cc":    item.get("engine_size") or item.get("engine_cc"),
+                "fuel_type":    FUEL_MAP.get(str(item.get("fuel_type","")).lower(),"petrol"),
+                "transmission": TRANS_MAP.get(str(item.get("transmission","")).lower(),"automatic"),
+                "body_type":    str(item.get("body_type","")).lower(),
+                "price_usd":    float(price),
+                "auction_grade":item.get("auction_grade"),
+                "images":       json.dumps((item.get("images") or [])[:5]),
+                "raw_data":     json.dumps(item)[:2000],
+            }
+        except Exception as e:
+            logger.debug("[beforward] json item error: %s", e)
+            return None
+
+    # ── Main ─────────────────────────────────────────────────────────────────
+
+    async def run(self, max_pages: int = 50) -> int:
+        total = 0
+        for make in BF_MAKES:
+            logger.info("[beforward] == %s (make_id=%s) ==", make, MAKE_IDS.get(make, "?"))
+            for page in range(1, max_pages + 1):
+                listings = await self._playwright_page(make, page)
+                if not listings:
+                    logger.info("[beforward] %s p%d: no listings", make, page)
+                    break
+                saved = self._save_batch(listings)
+                total += saved
+                logger.info("[beforward] %s p%d: %d saved (total=%d)", make, page, saved, total)
+                await asyncio.sleep(self.DELAY)
+        return total

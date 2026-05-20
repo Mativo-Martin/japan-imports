@@ -1,0 +1,19 @@
+{
+  "mae": 0.01,
+  "rmse": 0.02,
+  "r2": 1.0,
+  "mape": 0.0,
+  "n_train": 127,
+  "n_test": 32,
+  "feature_importance": {
+    "car_age": 0.0061,
+    "log_mileage": 0.0735,
+    "engine_cc": 0.2872,
+    "make": 0.008,
+    "model": 0.096,
+    "fuel_type": 0.0244,
+    "transmission": 0.0503,
+    "body_type": 0.4546,
+    "source": 0.0
+  }
+}
