@@ -1,28 +1,25 @@
 from fastapi import APIRouter, Query
-from typing import Optional
 from sqlalchemy import text
 from app.dependencies import DBDep, cache
-from app.database import engine
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
+
+IMPORT_SOURCES = ("'beforward'", "'sbt'")
 
 
 @router.get("/overview")
 def overview(db: DBDep):
-    """
-    Dashboard summary card data.
-    Single CTE query — one round-trip to Neon.
-    Cached 10 min.
-    """
     cached = cache.get("stats:overview")
-    if cached:
+    if cached is not None:
         return cached
 
-    result = db.execute(text("""
+    sources_sql = ",".join(IMPORT_SOURCES)
+
+    result = db.execute(text(f"""
         WITH bf AS (
-            SELECT price_usd, make, year, fuel_type, mileage_km
+            SELECT price_usd, make, model, year, fuel_type, mileage_km
             FROM   car_listings
-            WHERE  source = 'beforward' AND is_cleaned = true
+            WHERE  source IN ({sources_sql}) AND is_cleaned = true
               AND  price_usd IS NOT NULL
         ),
         local AS (
@@ -48,12 +45,13 @@ def overview(db: DBDep):
 
 @router.get("/price-distribution")
 def price_distribution(db: DBDep):
-    """Price bands for histogram chart. Cached 10 min."""
     cached = cache.get("stats:price-dist")
-    if cached:
+    if cached is not None:
         return cached
 
-    rows = db.execute(text("""
+    sources_sql = ",".join(IMPORT_SOURCES)
+
+    rows = db.execute(text(f"""
         SELECT
             CASE
                 WHEN price_usd <  3000  THEN 'Under $3k'
@@ -65,7 +63,7 @@ def price_distribution(db: DBDep):
             END AS band,
             COUNT(*) AS count
         FROM car_listings
-        WHERE source = 'beforward' AND is_cleaned = true
+        WHERE source IN ({sources_sql}) AND is_cleaned = true
           AND price_usd IS NOT NULL
         GROUP BY band
         ORDER BY MIN(price_usd)
@@ -78,10 +76,11 @@ def price_distribution(db: DBDep):
 
 @router.get("/top-makes")
 def top_makes(limit: int = Query(10, le=20), db: DBDep = None):
-    """Top makes by listing count + avg price. Cached 10 min."""
     cached = cache.get(f"stats:top-makes:{limit}")
-    if cached:
+    if cached is not None:
         return cached
+
+    sources_sql = ",".join(IMPORT_SOURCES)
 
     rows = db.execute(text(f"""
         SELECT
@@ -90,7 +89,7 @@ def top_makes(limit: int = Query(10, le=20), db: DBDep = None):
             ROUND(AVG(price_usd)::numeric, 0)   AS avg_price_usd,
             ROUND(MIN(price_usd)::numeric, 0)   AS min_price_usd
         FROM car_listings
-        WHERE source = 'beforward' AND is_cleaned = true
+        WHERE source IN ({sources_sql}) AND is_cleaned = true
           AND price_usd IS NOT NULL
         GROUP BY make
         ORDER BY count DESC
@@ -104,21 +103,17 @@ def top_makes(limit: int = Query(10, le=20), db: DBDep = None):
 
 @router.get("/savings-summary")
 async def savings_summary(db: DBDep):
-    """
-    For each make/model/year that exists in BOTH BF and Peach Cars:
-    compute median import cost vs median local price → savings.
-    Most expensive query — cached aggressively (30 min).
-    """
     cached = cache.get("stats:savings")
-    if cached:
+    if cached is not None:
         return cached
 
     from app.calculator.exchange import get_usd_kes
     from app.calculator.kra import calculate_import_cost
 
     rate = await get_usd_kes()
+    sources_sql = ",".join(IMPORT_SOURCES)
 
-    rows = db.execute(text("""
+    rows = db.execute(text(f"""
         SELECT
             bf.make, bf.model, bf.year,
             PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY bf.price_usd) AS median_import_usd,
@@ -130,7 +125,7 @@ async def savings_summary(db: DBDep):
           ON LOWER(lc.make)  = LOWER(bf.make)
          AND LOWER(lc.model) = LOWER(bf.model)
          AND lc.year          = bf.year
-        WHERE bf.source = 'beforward' AND bf.is_cleaned = true
+        WHERE bf.source IN ({sources_sql}) AND bf.is_cleaned = true
           AND lc.source = 'peachcars'
           AND bf.price_usd IS NOT NULL
           AND lc.price_kes IS NOT NULL
@@ -166,3 +161,9 @@ async def savings_summary(db: DBDep):
     result.sort(key=lambda x: x["saving_kes"], reverse=True)
     cache.set("stats:savings", result)
     return result
+
+
+@router.post("/clear-cache")
+def clear_cache():
+    cache.invalidate("stats:")
+    return {"ok": True}

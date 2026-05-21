@@ -1,11 +1,15 @@
 import { Routes, Route } from "react-router-dom";
+import "./styles/global.css";
+import "./styles/layout.css";
+import "./styles/components.css";
+import "./styles/pages.css";
 import Layout       from "./components/Layout";
 import Dashboard    from "./pages/Dashboard";
 import Search       from "./pages/Search";
 import ListingDetail from "./pages/ListingDetail";
 import Calculator   from "./pages/Calculator";
 import Predictor    from "./pages/Predictor";
-import Compare      from "./pages/Compare";
+import Compare from "./pages/Compare";
 
 export default function App() {
   return (
@@ -16,7 +20,7 @@ export default function App() {
         <Route path="listings/:id" element={<ListingDetail />} />
         <Route path="calculator"  element={<Calculator />}    />
         <Route path="predictor"   element={<Predictor />}     />
-        {/* <Route path="compare"     element={<Compare />}       /> */}
+        <Route path="compare"     element={<Compare />}       />
       </Route>
     </Routes>
   );

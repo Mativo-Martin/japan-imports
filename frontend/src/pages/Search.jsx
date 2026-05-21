@@ -21,85 +21,66 @@ export default function Search() {
   const field = (key, val) => setForm(f => ({ ...f, [key]: val || undefined }));
 
   return (
-    <div>
-      <h1 style={{ fontSize: 22, fontWeight: 500, marginBottom: "1.5rem" }}>Browse import cars</h1>
+    <div className="search-page">
+      <h1>Browse import cars</h1>
 
-      {/* Filter bar */}
-      <div style={{
-        background: "#fff", border: "0.5px solid #e5e5e0", borderRadius: 12,
-        padding: "1rem 1.25rem", marginBottom: "1.5rem",
-        display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10,
-      }}>
-        <select onChange={e => field("make", e.target.value)} style={{ padding: "8px 10px", borderRadius: 8, border: "0.5px solid #ddd", fontSize: 13 }}>
+      <div className="search-filter-bar">
+        <select onChange={e => field("make", e.target.value)} className="form-field">
           <option value="">All makes</option>
           {makes?.map(m => <option key={m.make} value={m.make}>{m.make} ({m.count})</option>)}
         </select>
-        <input placeholder="Model" onChange={e => field("model", e.target.value)}
-          style={{ padding: "8px 10px", borderRadius: 8, border: "0.5px solid #ddd", fontSize: 13 }} />
-        <select onChange={e => field("fuel_type", e.target.value)} style={{ padding: "8px 10px", borderRadius: 8, border: "0.5px solid #ddd", fontSize: 13 }}>
+        <input placeholder="Model" onChange={e => field("model", e.target.value)} className="form-field" />
+        <select onChange={e => field("fuel_type", e.target.value)} className="form-field">
           <option value="">All fuels</option>
           {["petrol","diesel","hybrid","electric"].map(f => <option key={f} value={f}>{f}</option>)}
         </select>
-        <input type="number" placeholder="Max price USD" onChange={e => field("price_max", e.target.value)}
-          style={{ padding: "8px 10px", borderRadius: 8, border: "0.5px solid #ddd", fontSize: 13 }} />
-        <button onClick={applyFilters} style={{
-          background: "#1D9E75", color: "#fff", border: "none",
-          borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontSize: 13, fontWeight: 500,
-        }}>Search</button>
+        <input type="number" placeholder="Max price USD" onChange={e => field("price_max", e.target.value)} className="form-field" />
+        <button onClick={applyFilters} className="btn btn-primary" style={{ width: "100%" }}>Search</button>
       </div>
 
-      {/* Results */}
-      {isLoading && <div style={{ color: "#aaa", fontSize: 13 }}>Loading listings…</div>}
+      {isLoading && <div className="search-empty">Loading listings…</div>}
       {isError   && <div style={{ color: "#A32D2D", fontSize: 13 }}>{error.message}</div>}
 
       <div style={{ fontSize: 12, color: "#888", marginBottom: 10 }}>
         {total.toLocaleString()} listings found
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div className="search-results">
         {listings.map(car => (
-          <div key={car.id} style={{
-            background: "#fff", border: "0.5px solid #e5e5e0", borderRadius: 12,
-            padding: "1rem 1.25rem", display: "flex", alignItems: "center", gap: 16,
-          }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 500, marginBottom: 2 }}>
+          <div key={car.id} className="listing-card">
+            <div className="listing-details">
+              <div className="listing-title">
                 {car.year} {car.make} {car.model}
               </div>
-              <div style={{ fontSize: 12, color: "#888", display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <div className="listing-specs">
                 <span>{fmtKM(car.mileage_km)}</span>
                 <span>{car.engine_cc ? `${car.engine_cc}cc` : ""}</span>
                 <span style={{ textTransform: "capitalize" }}>{car.fuel_type}</span>
                 <span style={{ textTransform: "capitalize" }}>{car.transmission}</span>
               </div>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 18, fontWeight: 500, color: "#1D9E75" }}>
+            <div className="listing-price">
+              <div className="listing-price-main">
                 {fmtUSD(car.price_usd)}
               </div>
-              <div style={{ fontSize: 11, color: "#aaa" }}>Japan price</div>
+              <div className="listing-price-sub">Japan price</div>
             </div>
-            <Link to={`/listings/${car.id}`} style={{
-              background: "#f4f4f0", border: "none", borderRadius: 8,
-              padding: "8px 14px", fontSize: 13, cursor: "pointer",
-              textDecoration: "none", color: "#333",
-            }}>Details →</Link>
+            <Link to={`/listings/${car.id}`} className="listing-action">Details →</Link>
           </div>
         ))}
       </div>
 
-      {/* Pagination */}
       {totalPages > 1 && (
-        <div style={{ display: "flex", gap: 8, marginTop: "1.5rem", justifyContent: "center" }}>
+        <div className="pagination-controls">
           <button disabled={filters.page === 1}
             onClick={() => setFilters(f => ({ ...f, page: f.page - 1 }))}
-            style={{ padding: "6px 14px", borderRadius: 8, border: "0.5px solid #ddd", cursor: "pointer", fontSize: 13 }}>← Prev</button>
-          <span style={{ padding: "6px 14px", fontSize: 13, color: "#666" }}>
+            className="pagination-btn">← Prev</button>
+          <span className="pagination-info">
             {filters.page} / {totalPages}
           </span>
           <button disabled={filters.page >= totalPages}
             onClick={() => setFilters(f => ({ ...f, page: f.page + 1 }))}
-            style={{ padding: "6px 14px", borderRadius: 8, border: "0.5px solid #ddd", cursor: "pointer", fontSize: 13 }}>Next →</button>
+            className="pagination-btn">Next →</button>
         </div>
       )}
     </div>

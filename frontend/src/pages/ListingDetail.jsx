@@ -2,9 +2,8 @@ import { useParams, Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { useListing } from "../hooks/useListings";
 import { estimateImport } from "../api/calculator";
-import { Card, Section, Spinner, Empty, Badge, BreakdownRow, Pill } from "../components/UI";
+import { Card, Spinner, Empty, Badge, BreakdownRow } from "../components/UI";
 import { useEffect } from "react";
-import "./ListingDetail.css";
 
 const fmtUSD = n => n != null ? `$${Math.round(n).toLocaleString()}` : "—";
 const fmtKES = n => n != null ? `KES ${Math.round(n).toLocaleString()}` : "—";
@@ -23,7 +22,7 @@ export default function ListingDetail() {
         listing_id:   car.id,
       });
     }
-  }, [car?.id]);
+  }, [car?.id, car?.price_usd, car?.body_type, mutate]);
 
   if (isLoading) return <Spinner size={32} />;
   if (isError || !car) return (
@@ -66,7 +65,7 @@ export default function ListingDetail() {
         </Link>
         {car.url && (
           <a href={car.url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">
-            View on BE FORWARD <i className="ti ti-external-link" aria-hidden="true" />
+            View Listing <i className="ti ti-external-link" aria-hidden="true" />
           </a>
         )}
       </div>

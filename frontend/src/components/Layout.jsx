@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useState } from "react";
-import "./Layout.css";
+import "../styles/layout.css";
 
 const NAV = [
   { to: "/",           icon: "ti-dashboard",  label: "Dashboard"      },

@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { Card, Section, Spinner, Empty, BreakdownRow, StatCard } from "../components/UI";
+import { Card, Spinner, Empty } from "../components/UI";
 import { compareImportVsLocal } from "../api/calculator";
-// import "./Compare.css";
 
 const fmtKES = n => n != null ? `KES ${Math.round(n).toLocaleString()}` : "—";
 const fmtUSD = n => n != null ? `$${Math.round(n).toLocaleString()}` : "—";

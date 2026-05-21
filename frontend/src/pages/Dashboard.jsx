@@ -1,7 +1,6 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { useOverview, usePriceDist, useTopMakes, useSavings } from "../hooks/useStats";
 import { StatCard, Card, Section, Spinner, Empty, Badge } from "../components/UI";
-import "./Dashboard.css";
 
 const fmtUSD = n => n != null ? `$${Math.round(n).toLocaleString()}` : "—";
 const fmtKES = n => n != null ? `KES ${Math.round(n).toLocaleString()}` : "—";
@@ -18,10 +17,10 @@ const CustomTooltip = ({ active, payload }) => {
 };
 
 export default function Dashboard() {
-  const { data: ov,    isLoading: l1 } = useOverview();
-  const { data: dist,  isLoading: l2 } = usePriceDist();
+  const { data: ov } = useOverview();
+  const { data: dist, isLoading: l2 } = usePriceDist();
   const { data: makes, isLoading: l3 } = useTopMakes();
-  const { data: sav,   isLoading: l4 } = useSavings();
+  const { data: sav, isLoading: l4 } = useSavings();
 
   const CHART_COLORS = ["#15616d","#1a7a89","#0e4850","#ff7d00","#ff9633","#78290f","#ffecd1"];
 

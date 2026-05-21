@@ -41,10 +41,8 @@ input,select,textarea{font-family:var(--font-sans)}
 
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
 
-/* Scrollbar */
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:10px}
 
-/* Transitions */
 *{transition:background-color .15s,border-color .15s,color .15s,opacity .15s}

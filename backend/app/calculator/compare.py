@@ -1,4 +1,5 @@
 import statistics
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.models.local_listings import LocalListing
 from app.models.car_listings   import CarListing
@@ -12,41 +13,65 @@ def compare_import_vs_local(
     usd_kes: float = 130.0,
 ) -> dict:
     """
-    Returns import cost range vs local market range,
-    potential saving, and best Japan listing for the spec.
+    Returns import cost range vs local market range.
+    
+    Year logic:
+    - Exact match on requested year (dynamic, no hardcoded tolerance)
+    - Minimum year 2018 for Japan imports (KRA restriction)
+    - No maximum year cap
+    - Falls back to nearest available years if exact match is empty
     """
 
-    # Best Japan listing for this spec
-    japan_listings = (
+    # --- Shared base filters (case-insensitive partial match) ---
+    japan_base = [
+        CarListing.source.in_(["beforward", "sbt"]),
+        CarListing.make.ilike(f"%{make}%"),
+        CarListing.model.ilike(f"%{model}%"),
+        CarListing.is_cleaned == True,
+        CarListing.price_usd.isnot(None),
+        CarListing.year >= 2018,          # ← min year restriction
+        # NO upper year cap
+    ]
+
+    local_base = [
+        LocalListing.make.ilike(f"%{make}%"),
+        LocalListing.model.ilike(f"%{model}%"),
+        LocalListing.price_kes.isnot(None),
+    ]
+
+    # --- Japan: exact year first ---
+    japan_exact = (
         db.query(CarListing)
-        .filter(
-            CarListing.make       == make,
-            CarListing.model      == model,
-            CarListing.year       == year,
-            CarListing.is_cleaned == True,
-            CarListing.price_usd.isnot(None),
-        )
+        .filter(*japan_base, CarListing.year == year)
         .order_by(CarListing.price_usd)
         .limit(20)
         .all()
     )
 
-    # Local Kenya listings for same spec
-    local_listings = (
-        db.query(LocalListing)
-        .filter(
-            LocalListing.make  == make,
-            LocalListing.model == model,
-            LocalListing.year  == year,
-            LocalListing.price_kes.isnot(None),
-        )
+    # Fallback: nearest years (still >= 2018, no upper cap)
+    japan_listings = japan_exact or (
+        db.query(CarListing)
+        .filter(*japan_base)
+        .order_by(func.abs(CarListing.year - year), CarListing.price_usd)
+        .limit(20)
         .all()
     )
 
-    if not japan_listings:
-        return {"error": f"No Japan listings found for {make} {model} {year}"}
+    # --- Local: exact year first ---
+    local_exact = (
+        db.query(LocalListing)
+        .filter(*local_base, LocalListing.year == year)
+        .all()
+    )
 
-    # Calculate import cost for cheapest, median, most expensive
+    local_listings = local_exact or (
+        db.query(LocalListing)
+        .filter(*local_base)
+        .order_by(func.abs(LocalListing.year - year))
+        .limit(20)
+        .all()
+    )
+
     def calc(listing) -> float:
         cost = calculate_import_cost(
             purchase_usd=listing.price_usd,
@@ -55,40 +80,70 @@ def compare_import_vs_local(
         )
         return cost.total_import_kes
 
-    import_prices = [calc(l) for l in japan_listings]
-    local_prices  = [l.price_kes for l in local_listings] if local_listings else []
+    # Build import stats
+    if japan_listings:
+        import_prices = [calc(l) for l in japan_listings]
+        import_data = {
+            "count":             len(japan_listings),
+            "min_kes":           round(min(import_prices)),
+            "max_kes":           round(max(import_prices)),
+            "median_kes":        round(statistics.median(import_prices)),
+            "best_listing_id":   japan_listings[0].id,
+            "best_purchase_usd": japan_listings[0].price_usd,
+        }
+    else:
+        import_data = {
+            "count": 0, "min_kes": None, "max_kes": None,
+            "median_kes": None, "best_listing_id": None,
+            "best_purchase_usd": None,
+        }
+
+    # Build local stats
+    if local_listings:
+        local_prices = [l.price_kes for l in local_listings]
+        local_data = {
+            "count":      len(local_listings),
+            "min_kes":    round(min(local_prices)),
+            "max_kes":    round(max(local_prices)),
+            "median_kes": round(statistics.median(local_prices)),
+        }
+    else:
+        local_data = {
+            "count": 0, "min_kes": None, "max_kes": None,
+            "median_kes": None,
+        }
 
     result = {
         "make": make, "model": model, "year": year,
-        "import": {
-            "count":    len(japan_listings),
-            "min_kes":  round(min(import_prices)),
-            "max_kes":  round(max(import_prices)),
-            "median_kes": round(statistics.median(import_prices)),
-            "best_listing_id": japan_listings[0].id,
-            "best_purchase_usd": japan_listings[0].price_usd,
-        },
-        "local": {
-            "count":      len(local_listings),
-            "min_kes":    round(min(local_prices))    if local_prices else None,
-            "max_kes":    round(max(local_prices))    if local_prices else None,
-            "median_kes": round(statistics.median(local_prices)) if local_prices else None,
-        },
+        "import": import_data,
+        "local": local_data,
     }
 
-    if local_prices:
-        saving = round(statistics.median(local_prices) - statistics.median(import_prices))
-        pct    = round(saving / statistics.median(local_prices) * 100, 1)
-        result["saving_kes"]      = saving
-        result["saving_pct"]      = pct
-        result["verdict"]         = "import" if saving > 0 else "local"
+    # Verdict only when both sides have data
+    if japan_listings and local_listings:
+        median_local  = statistics.median([l.price_kes for l in local_listings])
+        median_import = statistics.median(import_prices)
+        saving = round(median_local - median_import)
+        pct    = round(saving / median_local * 100, 1) if median_local else 0.0
+
+        result["saving_kes"] = saving
+        result["saving_pct"] = abs(pct)
+        result["verdict"]    = "import" if saving > 0 else "local"
         result["verdict_summary"] = (
-            f"Importing saves ~KES {saving:,} ({pct}% cheaper than local)"
+            f"Importing saves ~KES {saving:,} ({abs(pct)}% cheaper than local)"
             if saving > 0
             else f"Local market is ~KES {abs(saving):,} cheaper"
         )
     else:
         result["saving_kes"] = None
-        result["verdict"]    = "no_local_data"
+        result["saving_pct"] = None
+        result["verdict"]    = (
+            "no_local_data" if not local_listings else "no_import_data"
+        )
+        result["verdict_summary"] = (
+            "No local market data for this spec"
+            if not local_listings
+            else "No Japan import listings for this spec"
+        )
 
     return result
