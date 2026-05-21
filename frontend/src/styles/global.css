@@ -1,6 +1,12 @@
+@import "tailwindcss";
+
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600&display=swap');
 
+/* ───────────────────────────────────────────
+   Design Tokens
+   ─────────────────────────────────────────── */
 :root {
+  /* Core palette */
   --navy:    #001524;
   --teal:    #15616d;
   --teal-lt: #1a7a89;
@@ -13,36 +19,227 @@
   --rust:    #78290f;
   --rust-lt: #9a3714;
   --white:   #ffffff;
-  --surface: #f7f3ee;
-  --surface2:#ede8e0;
-  --text-pri:#001524;
-  --text-sec:#3d5a68;
-  --text-muted:#7a8f99;
-  --border:  rgba(0,21,36,0.10);
+
+  /* Surfaces */
+  --surface:  #f7f3ee;
+  --surface2: #ede8e0;
+  --surface3: #e6dfd5;
+
+  /* Text */
+  --text-pri:   #001524;
+  --text-sec:   #3d5a68;
+  --text-muted: #7a8f99;
+
+  /* Borders */
+  --border:   rgba(0,21,36,0.10);
   --border-md:rgba(0,21,36,0.16);
-  --radius-sm:6px;
-  --radius:  10px;
-  --radius-lg:14px;
-  --radius-xl:20px;
-  --shadow-sm:0 1px 3px rgba(0,21,36,0.08);
-  --shadow:  0 2px 8px rgba(0,21,36,0.10);
-  --shadow-lg:0 8px 24px rgba(0,21,36,0.12);
-  --font-sans:'Inter',system-ui,sans-serif;
-  --font-head:'Space Grotesk',system-ui,sans-serif;
+  --border-lg:rgba(0,21,36,0.24);
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius:    10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* Shadows — layered for depth */
+  --shadow-xs: 0 1px 2px rgba(0,21,36,0.06);
+  --shadow-sm: 0 1px 3px rgba(0,21,36,0.08);
+  --shadow:    0 2px 8px rgba(0,21,36,0.10);
+  --shadow-md: 0 4px 16px rgba(0,21,36,0.10);
+  --shadow-lg: 0 8px 24px rgba(0,21,36,0.12);
+  --shadow-xl: 0 16px 48px rgba(0,21,36,0.14);
+  --shadow-glow: 0 0 20px rgba(21,97,109,0.15);
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-head: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10:40px;
+  --space-12:48px;
+
+  /* Transitions */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
 }
 
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{font-size:16px;-webkit-font-smoothing:antialiased}
-body{font-family:var(--font-sans);background:var(--surface);color:var(--text-pri);line-height:1.6}
+/* ───────────────────────────────────────────
+   Base Reset & Typography
+   ─────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
-a{color:inherit;text-decoration:none}
-button{cursor:pointer;font-family:var(--font-sans)}
-input,select,textarea{font-family:var(--font-sans)}
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
+}
 
-.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+body {
+  font-family: var(--font-sans);
+  background: var(--surface);
+  color: var(--text-pri);
+  line-height: 1.6;
+  min-height: 100vh;
+}
 
-::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:10px}
+/* Selection */
+::selection {
+  background: rgba(21, 97, 109, 0.2);
+  color: var(--navy);
+}
 
-*{transition:background-color .15s,border-color .15s,color .15s,opacity .15s}
+/* Links */
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+/* Buttons */
+button {
+  cursor: pointer;
+  font-family: var(--font-sans);
+  border: none;
+  background: none;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Form elements */
+input,
+select,
+textarea {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--text-pri);
+  background: var(--white);
+  border: 1px solid var(--border-md);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast), transform var(--duration-fast);
+}
+
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: var(--border-lg);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(21, 97, 109, 0.1);
+}
+
+/* Utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ───────────────────────────────────────────
+   Scrollbar
+   ─────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--surface2);
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--surface3);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface2) transparent;
+}
+
+/* ───────────────────────────────────────────
+   Global Transitions
+   ─────────────────────────────────────────── */
+* {
+  transition: background-color var(--duration-fast),
+              border-color var(--duration-fast),
+              color var(--duration-fast),
+              opacity var(--duration-fast);
+}
+
+/* Card / surface base */
+.card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--duration-base) var(--ease-out),
+              transform var(--duration-base) var(--ease-out),
+              border-color var(--duration-fast);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-md);
+}
+
+/* Subtle lift on interactive elements */
+.lift {
+  transition: transform var(--duration-base) var(--ease-out),
+              box-shadow var(--duration-base) var(--ease-out);
+}
+
+.lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.lift:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}

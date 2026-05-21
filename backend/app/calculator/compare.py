@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.models.local_listings import LocalListing
 from app.models.car_listings   import CarListing
 from app.calculator.kra       import calculate_import_cost
+from app.config import IMPORT_SOURCES
 
 def compare_import_vs_local(
     make: str,
@@ -24,7 +25,7 @@ def compare_import_vs_local(
 
     # --- Shared base filters (case-insensitive partial match) ---
     japan_base = [
-        CarListing.source.in_(["beforward", "sbt"]),
+        CarListing.source.in_(IMPORT_SOURCES),
         CarListing.make.ilike(f"%{make}%"),
         CarListing.model.ilike(f"%{model}%"),
         CarListing.is_cleaned == True,

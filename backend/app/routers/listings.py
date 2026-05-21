@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from datetime import datetime
 from app.dependencies import DBDep, PaginationDep, cache
 from app.models.car_listings import CarListing
+from app.config import IMPORT_SOURCES
 
 router = APIRouter(prefix="/api/listings", tags=["listings"])
 
@@ -69,7 +70,7 @@ def get_listings(
 
         filters = [
             CarListing.is_cleaned == True,
-            CarListing.source.in_(["beforward", "sbt"]),  # Include both sources
+            CarListing.source.in_(IMPORT_SOURCES),
             CarListing.year >= year_min,
             CarListing.year <= year_max,
         ]
@@ -122,7 +123,7 @@ def get_makes(db: DBDep):
         return cached
     rows = db.execute(
         select(CarListing.make, func.count().label("n"))
-        .where(CarListing.is_cleaned == True, CarListing.source == "beforward")
+        .where(CarListing.is_cleaned == True, CarListing.source.in_(IMPORT_SOURCES))
         .group_by(CarListing.make)
         .order_by(func.count().desc())
     ).all()
@@ -141,7 +142,7 @@ def get_models(make: str = Query(...), db: DBDep = None):
         select(CarListing.model, func.count().label("n"))
         .where(
             CarListing.is_cleaned == True,
-            CarListing.source     == "beforward",
+            CarListing.source.in_(IMPORT_SOURCES),
             CarListing.make.ilike(f"%{make}%"),
         )
         .group_by(CarListing.model)

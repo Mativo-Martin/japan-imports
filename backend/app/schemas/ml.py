@@ -16,7 +16,7 @@ class PredictRequest(BaseModel):
     fuel_type: str = Field("petrol", example="petrol")
     transmission: str = Field("automatic", example="automatic")
     body_type: str = Field("sedan", example="sedan")
-    source: str = Field("beforward", example="beforward")
+    source: str = Field(..., example="sbt_japan")
 
 
 class PredictResponse(BaseModel):

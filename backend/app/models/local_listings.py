@@ -6,7 +6,7 @@ class LocalListing(Base):
     __tablename__ = "local_listings"
 
     id           = Column(Integer, primary_key=True)
-    source       = Column(String(50))         # "peachcars"
+    source       = Column(String(50))         # peachcars, sbt_kenya, etc.
     source_id    = Column(String(150), unique=True, nullable=False)
     make         = Column(String(100), index=True)
     model        = Column(String(100), index=True)

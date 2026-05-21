@@ -25,20 +25,19 @@ DEFAULTS = {
     "fuel_type": "petrol",
     "transmission": "automatic",
     "body_type": "sedan",
-    "source": "beforward",
 }
 
 CATEGORICAL_COLS = ["make", "model", "fuel_type", "transmission", "body_type", "source"]
 
 
-def engineer_features(df: pd.DataFrame, source: str = "beforward") -> pd.DataFrame:
+def engineer_features(df: pd.DataFrame, source: str) -> pd.DataFrame:
     """
     Transform raw car data into model-ready features.
 
     Args:
         df: DataFrame with columns: make, model, year, mileage_km, engine_cc,
             fuel_type, transmission, body_type
-        source: Platform source (beforward, peachcars, etc.)
+        source: Platform source (beforward, sbt, sbt_japan, peachcars, etc.)
 
     Returns:
         DataFrame with FEATURE_COLS in exact order, no nulls.

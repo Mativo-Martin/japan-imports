@@ -17,6 +17,7 @@ class PredictRequest(BaseModel):
     fuel_type:    Optional[str]   = Field("petrol", example="petrol")
     transmission: Optional[str]   = Field("automatic", example="automatic")
     body_type:    Optional[str]   = Field("hatchback", example="hatchback")
+    source:       Optional[str]   = Field("beforward", example="sbt_japan")
 
 
 class PredictWithImportRequest(PredictRequest):
