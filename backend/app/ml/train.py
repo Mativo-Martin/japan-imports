@@ -125,16 +125,15 @@ def train(
         if best_params:
             kwargs.update(best_params)
 
-    # Default params
     default_params = {
-        "n_estimators": 300,      # reduced from 600
+        "n_estimators": 300,      
         "learning_rate": 0.05,
-        "max_depth": 4,           # reduced from 6
+        "max_depth": 4,           
         "subsample": 0.8,
         "colsample_bytree": 0.8,
-        "min_child_weight": 3,    # increased from 1
-        "gamma": 0.1,             # added
-        "reg_alpha": 0.5,         # increased from 0.1
+        "min_child_weight": 3,    
+        "gamma": 0.1,             
+        "reg_alpha": 0.5,         
         "reg_lambda": 2, 
     }
     default_params.update(kwargs)
@@ -208,27 +207,23 @@ def train(
     logger.info(f"MAE: ${mae:,.0f}  RMSE: ${rmse:,.0f}  R²: {r2:.3f}  MAPE: {mape:.1f}%")
     logger.info(f"CI (residual-based): ±${interval_width:,.0f}  coverage={coverage:.1f}%")
 
-    # Save artifacts with timestamps
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    joblib.dump(model, MODELS_DIR / f"{model_tag}_{timestamp}.joblib")
-    joblib.dump(model_q25, MODELS_DIR / f"{model_tag}_q25_{timestamp}.joblib")
-    joblib.dump(model_q75, MODELS_DIR / f"{model_tag}_q75_{timestamp}.joblib")
-    joblib.dump(encoder, MODELS_DIR / f"{model_tag}_encoder_{timestamp}.joblib")
-    with open(MODELS_DIR / f"{model_tag}_metrics_{timestamp}.json", "w") as f:
-        json.dump(metrics, f, indent=2)
 
     # Save as "latest" (non-timestamped)
-    joblib.dump(model, MODELS_DIR / f"{model_tag}.joblib")
+    model_path = MODELS_DIR / f"{model_tag}.joblib"
+    encoder_path = MODELS_DIR / f"{model_tag}_encoder.joblib"
+    metrics_path = MODELS_DIR / f"{model_tag}_metrics.json"
+
+    joblib.dump(model, model_path)
     joblib.dump(model_q25, MODELS_DIR / f"{model_tag}_q25.joblib")
     joblib.dump(model_q75, MODELS_DIR / f"{model_tag}_q75.joblib")
-    joblib.dump(encoder, MODELS_DIR / f"{model_tag}_encoder.joblib")
-    with open(MODELS_DIR / f"{model_tag}_metrics.json", "w") as f:
+    joblib.dump(encoder, encoder_path)
+    
+    with open(metrics_path, "w") as f:
         json.dump(metrics, f, indent=2)
 
     # Register in DB (handle missing table gracefully)
     db = SessionLocal()
     try:
-        # Check if table exists first
         from sqlalchemy import inspect
         inspector = inspect(engine)
         if "ml_model_versions" not in inspector.get_table_names():
@@ -240,10 +235,11 @@ def train(
             MLModelVersion.model_tag == model_tag,
             MLModelVersion.is_active == True,
         ).update({"is_active": False}, synchronize_session=False)
+        
         db.add(MLModelVersion(
             model_tag=model_tag,
-            model_path=str(MODELS_DIR / f"{model_tag}_{timestamp}.joblib"),
-            encoder_path=str(MODELS_DIR / f"{model_tag}_encoder_{timestamp}.joblib"),
+            model_path=str(model_path),          # Clean path
+            encoder_path=str(encoder_path),      # Clean path
             metrics=metrics,
             n_train=metrics["n_train"],
             n_test=metrics["n_test"],

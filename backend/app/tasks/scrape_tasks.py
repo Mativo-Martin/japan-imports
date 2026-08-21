@@ -14,6 +14,10 @@ celery_app = Celery(
     backend=settings.redis_url,
 )
 celery_app.conf.update(
+    imports=[
+        "app.tasks.scrape_tasks",
+        "app.tasks.etl_tasks",
+    ],
     task_serializer="json",
     result_expires=3600,
     worker_prefetch_multiplier=1,
@@ -21,23 +25,23 @@ celery_app.conf.update(
     beat_schedule={
         "daily-scrape": {
             "task": "app.tasks.scrape_tasks.run_all_scrapers",
-            "schedule": crontab(hour=1, minute=0),   # 1 AM UTC daily
+            "schedule": crontab(hour=0, minute=0),   # Midnight UTC daily
         },
         "daily-etl": {
             "task": "app.tasks.etl_tasks.run_etl_pipeline",
-            "schedule": crontab(hour=2, minute=0),   # 2 AM UTC (1 hour after scrape)
+            "schedule": crontab(hour=1, minute=0),   # 1 AM UTC (1 hour after scrape)
         },
         "daily-train": {
             "task": "app.tasks.etl_tasks.train_model",
-            "schedule": crontab(hour=3, minute=0),   # 3 AM UTC (1 hour after ETL)
+            "schedule": crontab(hour=2, minute=0),   # 2 AM UTC (1 hour after ETL)
         },
     },
 )
 
 SCRAPERS = {
     "beforward": BeForwardScraper,
-    "sbt": SBTScraper,
     "peachcars": PeachCarsScraper,
+    "sbt": SBTScraper,
 }
 
 @celery_app.task(bind=True, max_retries=2, default_retry_delay=60)
@@ -47,9 +51,13 @@ def scrape_source(self, source_name: str, max_pages: int = 200):
         raise ValueError(f"Unknown source: {source_name}")
     scraper = cls()
     try:
-        total = asyncio.run(scraper.run(max_pages=max_pages))
-        logger.info("[task] %s done — %d new listings", source_name, total)
-        return {"source": source_name, "new": total}
+        res = asyncio.run(scraper.run(max_pages=max_pages))
+        if isinstance(res, dict):
+            logger.info("[task] %s done — %s", source_name, res)
+            return res
+        else:
+            logger.info("[task] %s done — %d new listings", source_name, res)
+            return {"source": source_name, "new": res}
     except Exception as exc:
         logger.error("[task] %s failed: %s", source_name, exc)
         raise self.retry(exc=exc)

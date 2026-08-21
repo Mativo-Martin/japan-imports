@@ -27,6 +27,7 @@ class CarListing(Base):
     images        = Column(Text)         # JSON array string
     raw_data      = Column(Text)         # full JSON snapshot
     is_cleaned    = Column(Boolean, default=False, index=True)
+    status        = Column(String(20), default="active", nullable=False, index=True) # active|sold|removed
     scraped_at    = Column(DateTime, default=datetime.utcnow)
     updated_at    = Column(DateTime, default=datetime.utcnow,
                            onupdate=datetime.utcnow)

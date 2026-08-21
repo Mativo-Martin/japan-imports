@@ -1,7 +1,7 @@
 import re, logging
 import pandas as pd
 import numpy as np
-from sqlalchemy import text, update
+from sqlalchemy import text
 from app.database import engine, SessionLocal
 from app.models.car_listings import CarListing
 
@@ -37,20 +37,22 @@ class ListingCleaner:
     def __init__(self, chunk_size: int = 500):
         self.chunk_size = chunk_size
 
-    def run(self) -> dict:
+    def run(self, reclean_all: bool = False) -> dict:
         stats = {"fetched": 0, "cleaned": 0, "dropped": 0, "errors": 0}
+
+        where_clause = "WHERE status = 'active'" if reclean_all else "WHERE is_cleaned = false"
 
         with engine.connect() as conn:
             total = conn.execute(
-                text("SELECT COUNT(*) FROM car_listings WHERE is_cleaned = false")
+                text(f"SELECT COUNT(*) FROM car_listings {where_clause}")
             ).scalar()
 
-        logger.info("Cleaning %d raw records in chunks of %d", total, self.chunk_size)
+        logger.info("Cleaning %d records in chunks of %d", total, self.chunk_size)
         stats["fetched"] = total
 
         for offset in range(0, total, self.chunk_size):
             df = pd.read_sql(
-                f"SELECT * FROM car_listings WHERE is_cleaned = false "
+                f"SELECT * FROM car_listings {where_clause} "
                 f"LIMIT {self.chunk_size} OFFSET {offset}",
                 engine,
             )
@@ -81,26 +83,40 @@ class ListingCleaner:
         return df, dropped
 
     def _standardize_make_model(self, df: pd.DataFrame) -> pd.DataFrame:
-        df["make"]  = df["make"].str.strip().replace(MAKE_CORRECTIONS)
+        df["make"]  = df["make"].astype(str).str.strip().replace(MAKE_CORRECTIONS)
         df["make"]  = df["make"].str.title()
-        df["model"] = df["model"].str.strip().str.title()
+        df["model"] = df["model"].astype(str).str.strip().str.title()
+
+        known_makes = ["Toyota", "Honda", "Nissan", "Mazda", "Subaru", "Suzuki", "Mitsubishi", "Daihatsu"]
+        
+        def fix_embedded_make(row):
+            m_make = row["make"]
+            m_model = row["model"]
+            for km in known_makes:
+                if m_model.lower().startswith(km.lower() + " ") or m_model.lower() == km.lower():
+                    m_make = km
+                    m_model = m_model[len(km):].strip()
+                    break
+            return pd.Series([m_make, m_model])
+
+        df[["make", "model"]] = df.apply(fix_embedded_make, axis=1)
         df["model"] = df["model"].str.lower().replace(MODEL_ALIASES).str.title()
         return df
 
     def _normalize_categoricals(self, df: pd.DataFrame) -> pd.DataFrame:
         df["fuel_type"] = (
             df["fuel_type"]
-            .str.lower().str.strip()
+            .astype(str).str.lower().str.strip()
             .map(FUEL_MAP)
             .fillna("petrol")
         )
         df["transmission"] = (
-            df["transmission"].str.lower().str.strip()
+            df["transmission"].astype(str).str.lower().str.strip()
             .map({"at": "automatic", "mt": "manual", "cvt": "cvt",
                   "automatic": "automatic", "manual": "manual"})
             .fillna("automatic")
         )
-        df["body_type"] = df["body_type"].str.lower().str.strip().fillna("unknown")
+        df["body_type"] = df["body_type"].astype(str).str.lower().str.strip().fillna("unknown")
         return df
 
     def _fix_numeric_fields(self, df: pd.DataFrame) -> pd.DataFrame:

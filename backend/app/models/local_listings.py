@@ -23,4 +23,5 @@ class LocalListing(Base):
     location     = Column(String(100))
     listing_url  = Column(Text)
     images_json  = Column(Text)               # JSON array string
+    status       = Column(String(20), default="active", nullable=False, index=True) # active|sold|removed
     scraped_at   = Column(DateTime, default=datetime.utcnow)

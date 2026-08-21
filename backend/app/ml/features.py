@@ -10,38 +10,28 @@ import pandas as pd
 pd.set_option('future.no_silent_downcasting', True)
 from sklearn.preprocessing import OrdinalEncoder
 
-CURRENT_YEAR = 2025
+CURRENT_YEAR = 2026
 
 # Feature columns in exact order expected by the model
 FEATURE_COLS = [
     "car_age", "log_mileage", "engine_cc",
-    "make", "model", "fuel_type", "transmission", "body_type", "source",
+    "make", "model", "fuel_type", "transmission", "body_type","source",
 ]
 
 # Default values for missing fields
 DEFAULTS = {
-    "mileage_km": 0,
+    "mileage_km": 50000,
     "engine_cc": 1500,
     "fuel_type": "petrol",
     "transmission": "automatic",
     "body_type": "sedan",
+    "source": "unknown"
 }
 
-CATEGORICAL_COLS = ["make", "model", "fuel_type", "transmission", "body_type", "source"]
+CATEGORICAL_COLS = ["make", "model", "fuel_type", "transmission", "body_type","source"]
 
 
-def engineer_features(df: pd.DataFrame, source: str) -> pd.DataFrame:
-    """
-    Transform raw car data into model-ready features.
-
-    Args:
-        df: DataFrame with columns: make, model, year, mileage_km, engine_cc,
-            fuel_type, transmission, body_type
-        source: Platform source (beforward, sbt, sbt_japan, peachcars, etc.)
-
-    Returns:
-        DataFrame with FEATURE_COLS in exact order, no nulls.
-    """
+def engineer_features(df: pd.DataFrame, source: str = "unknown") -> pd.DataFrame:
     df = df.copy()
 
     # Numeric features
@@ -55,9 +45,13 @@ def engineer_features(df: pd.DataFrame, source: str) -> pd.DataFrame:
     df["fuel_type"] = df["fuel_type"].astype(str).str.lower().str.strip()
     df["transmission"] = df["transmission"].astype(str).str.lower().str.strip()
     df["body_type"] = df["body_type"].fillna(DEFAULTS["body_type"]).astype(str).str.lower().str.strip()
-    df["source"] = source
+    
+    # Check if 'source' column exists in input dataframe before overwriting, 
+    # or fall back to the default argument string.
+    if "source" not in df.columns:
+        df["source"] = source
 
-    # Ensure all feature columns exist and ordered
+    # Ensure all feature columns exist and are ordered
     for col in FEATURE_COLS:
         if col not in df.columns:
             df[col] = DEFAULTS.get(col, "unknown")
@@ -85,5 +79,5 @@ def apply_encoder(df: pd.DataFrame, encoder: OrdinalEncoder) -> pd.DataFrame:
 
 def prepare_for_model(df: pd.DataFrame, encoder: OrdinalEncoder) -> pd.DataFrame:
     """Full pipeline: engineer + encode."""
-    df = engineer_features(df)
+    df = engineer_features(df) 
     return apply_encoder(df, encoder)

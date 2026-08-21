@@ -193,12 +193,12 @@ MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "xgb_v1.joblib")
 
 def check_model_exists():
     assert os.path.exists(MODEL_PATH), f"Model not found at {MODEL_PATH}\nRun: python -m app.ml.train"
-    metrics_path = MODEL_PATH.replace("xgb_v1.joblib", "metrics_v1.json")
-    assert os.path.exists(metrics_path), "metrics_v1.json missing"
-    return "xgb_v1.joblib + metrics_v1.json found"
+    metrics_path = MODEL_PATH.replace("xgb_v1.joblib", "xgb_v1_metrics.json")
+    assert os.path.exists(metrics_path), "xgb_v1_metrics.json missing"
+    return "xgb_v1.joblib + xgb_v1_metrics.json found"
 
 def check_no_overfitting():
-    metrics_path = MODEL_PATH.replace("xgb_v1.joblib", "metrics_v1.json")
+    metrics_path = MODEL_PATH.replace("xgb_v1.joblib", "xgb_v1_metrics.json")
     with open(metrics_path) as f:
         m = json.load(f)
     test_mae  = m["mae"]

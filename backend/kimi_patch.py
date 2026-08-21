@@ -226,20 +226,21 @@ else:
 print("\n── Step 4: Retrain model ──")
 log.info("Starting training on %d rows...", n_imports)
 
-# Delete old models to force fresh train
-for fname in [
-    "xgb_v1.joblib", "xgb_v1_q25.joblib", "xgb_v1_q75.joblib",
-    "xgb_v1_encoder.joblib", "xgb_v1_metrics.json"
-]:
-    p = os.path.join(BASE, "models", fname)
-    if os.path.exists(p):
+import glob
+
+# Dynamically find and delete ALL previous xgb_v1 models, encoders, and metrics
+old_artifacts = glob.glob(os.path.join(BASE, "models", "xgb_v1*"))
+for p in old_artifacts:
+    try:
         os.remove(p)
+        log.debug(f"Removed old artifact: {os.path.basename(p)}")
+    except OSError as e:
+        log.error(f"Error deleting {p}: {e}")
 
 from app.ml.train import train
 metrics = train(use_optuna=False)
 
 ok("Model trained", f"test_mae=${metrics['mae']:,.0f}  R²={metrics['r2']}  n_train={metrics['n_train']}")
-
 
 # ════════════════════════════════════════════════════════════
 # STEP 5 — Validate metrics

@@ -6,3 +6,12 @@ node_modules/
 data/raw
 *.joblib
 .DS_Store
+verify_phase6.py
+training_optuna.log
+TEST_PLAN.md
+test_phase3.py
+script2.py
+kimi_patch.py
+probe_bf.py
+patch.py
+tests/

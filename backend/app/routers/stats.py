@@ -16,13 +16,13 @@ def overview(db: DBDep):
         WITH bf AS (
             SELECT price_usd, make, model, year, fuel_type, mileage_km
             FROM   car_listings
-            WHERE  source IN ({IMPORT_SOURCES_SQL}) AND is_cleaned = true
+            WHERE  source IN ({IMPORT_SOURCES_SQL}) AND is_cleaned = true AND status = 'active'
               AND  price_usd IS NOT NULL
         ),
         local AS (
             SELECT price_kes
             FROM   local_listings
-            WHERE  source IN ({','.join(f"'{s}'" for s in LOCAL_SOURCES)})
+            WHERE  source IN ({','.join(f"'{s}'" for s in LOCAL_SOURCES)}) AND status = 'active'
         )
         SELECT
             (SELECT COUNT(*)           FROM bf)                        AS bf_count,
@@ -58,7 +58,7 @@ def price_distribution(db: DBDep):
             END AS band,
             COUNT(*) AS count
         FROM car_listings
-        WHERE source IN ({IMPORT_SOURCES_SQL}) AND is_cleaned = true
+        WHERE source IN ({IMPORT_SOURCES_SQL}) AND is_cleaned = true AND status = 'active'
           AND price_usd IS NOT NULL
         GROUP BY band
         ORDER BY MIN(price_usd)
@@ -82,7 +82,7 @@ def top_makes(limit: int = Query(10, le=20), db: DBDep = None):
             ROUND(AVG(price_usd)::numeric, 0)   AS avg_price_usd,
             ROUND(MIN(price_usd)::numeric, 0)   AS min_price_usd
         FROM car_listings
-        WHERE source IN ({IMPORT_SOURCES_SQL}) AND is_cleaned = true
+        WHERE source IN ({IMPORT_SOURCES_SQL}) AND is_cleaned = true AND status = 'active'
           AND price_usd IS NOT NULL
         GROUP BY make
         ORDER BY count DESC
@@ -117,8 +117,8 @@ async def savings_summary(db: DBDep):
           ON LOWER(lc.make)  = LOWER(bf.make)
          AND LOWER(lc.model) = LOWER(bf.model)
          AND lc.year          = bf.year
-        WHERE bf.source IN ({IMPORT_SOURCES_SQL}) AND bf.is_cleaned = true
-          AND lc.source IN ({','.join(f"'{s}'" for s in LOCAL_SOURCES)})
+        WHERE bf.source IN ({IMPORT_SOURCES_SQL}) AND bf.is_cleaned = true AND bf.status = 'active'
+          AND lc.source IN ({','.join(f"'{s}'" for s in LOCAL_SOURCES)}) AND lc.status = 'active'
           AND bf.price_usd IS NOT NULL
           AND lc.price_kes IS NOT NULL
         GROUP BY bf.make, bf.model, bf.year
@@ -157,5 +157,5 @@ async def savings_summary(db: DBDep):
 
 @router.post("/clear-cache")
 def clear_cache():
-    cache.invalidate("stats:")
+    cache.clear()
     return {"ok": True}

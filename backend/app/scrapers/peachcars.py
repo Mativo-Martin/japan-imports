@@ -51,10 +51,9 @@ class PeachCarsScraper:
             
         return items, total
 
-    async def run(self) -> dict:
+    async def run(self, max_pages: int = 200) -> dict:
         """
-        Fetch ALL pages until empty or we've fetched 'count' items.
-        The API returns ~10 items per page with a 'count' field showing total.
+        Fetch pages up to max_pages or until empty / total count reached.
         """
         all_items = []
         seen_ids = set()
@@ -62,7 +61,7 @@ class PeachCarsScraper:
         
         async with httpx.AsyncClient(headers=self.HEADERS) as client:
             page = 1
-            while True:
+            while page <= max_pages:
                 items, total = await self._fetch_page(client, page)
                 
                 if total_expected is None:
@@ -85,18 +84,18 @@ class PeachCarsScraper:
                            page, len(items), new_count, len(items) - new_count)
                 
                 # Stop if we've fetched all expected items
-                if len(all_items) >= total_expected:
+                if total_expected and len(all_items) >= total_expected:
                     logger.info("[peachcars] fetched all %d expected items", total_expected)
                     break
                 
-                # Safety cap
-                if page >= 200:
-                    logger.warning("[peachcars] hit 200-page safety cap")
-                    break
-                    
                 page += 1
 
-        return self._save(all_items)
+        stats = self._save(all_items)
+        seen_source_ids = {f"peach_{item['id']}" for item in all_items if item.get("id")}
+        removed_count = self.sync_removed(seen_source_ids)
+        stats["removed"] = removed_count
+        stats["source"] = self.SOURCE
+        return stats
 
     def _transform(self, raw: dict) -> dict | None:
         try:
@@ -110,7 +109,8 @@ class PeachCarsScraper:
             fuel_code  = raw.get("fuel", "P")
             trans_code = raw.get("transmission", "A")
             body_code  = raw.get("body_type", "")
-            status     = raw.get("vehicle_used_status", "")
+            veh_status = raw.get("vehicle_used_status", "")
+            is_sold = raw.get("is_sold", False) or raw.get("status") == "sold"
 
             return {
                 "source_id":    f"peach_{raw['id']}",
@@ -126,10 +126,11 @@ class PeachCarsScraper:
                 "drive_type":   DRIVE_MAP.get(raw.get("drive", "2"), "2WD"),
                 "color":        raw.get("color"),
                 "price_kes":    float(price_kes),
-                "condition":    "local_used" if status == "Locally" else "imported_used",
+                "condition":    "local_used" if veh_status == "Locally" else "imported_used",
                 "location":     "Nairobi",
                 "listing_url":  f"https://peachcars.co.ke/cars/{raw.get('slug', '')}",
                 "images_json":  json.dumps(raw.get("images", [])[:5]),
+                "status":       "sold" if is_sold else "active",
                 "scraped_at":   datetime.utcnow(),
             }
         except Exception as e:
@@ -138,7 +139,7 @@ class PeachCarsScraper:
 
     def _save(self, raw_items: list) -> dict:
         db = SessionLocal()
-        stats = {"total_api": len(raw_items), "new": 0, "updated": 0, "skipped": 0}
+        stats = {"total_api": len(raw_items), "new": 0, "updated": 0, "sold": 0, "skipped": 0}
         try:
             for raw in raw_items:
                 rec = self._transform(raw)
@@ -152,7 +153,10 @@ class PeachCarsScraper:
                 if existing:
                     existing.price_kes  = rec["price_kes"]
                     existing.mileage_km = rec["mileage_km"]
+                    existing.status     = rec["status"]
                     existing.scraped_at = rec["scraped_at"]
+                    if rec["status"] == "sold":
+                        stats["sold"] += 1
                     stats["updated"] += 1
                 else:
                     db.add(LocalListing(**{
@@ -160,6 +164,8 @@ class PeachCarsScraper:
                         if k in LocalListing.__table__.columns.keys()
                     }))
                     stats["new"] += 1
+                    if rec["status"] == "sold":
+                        stats["sold"] += 1
 
             db.commit()
             logger.info("[peachcars] done: %s", stats)
@@ -169,3 +175,27 @@ class PeachCarsScraper:
         finally:
             db.close()
         return stats
+
+    def sync_removed(self, seen_active_ids: set) -> int:
+        """Mark active listings in local_listings for peachcars not found in current scrape as removed."""
+        if not seen_active_ids:
+            return 0
+        db = SessionLocal()
+        removed_count = 0
+        try:
+            active_db_listings = db.query(LocalListing).filter_by(
+                source=self.SOURCE, status="active"
+            ).all()
+            for listing in active_db_listings:
+                if listing.source_id not in seen_active_ids:
+                    listing.status = "removed"
+                    removed_count += 1
+            db.commit()
+            if removed_count > 0:
+                logger.info("[peachcars] Sync: marked %d missing listings as removed", removed_count)
+        except Exception as e:
+            db.rollback()
+            logger.error("[peachcars] sync_removed DB error: %s", e)
+        finally:
+            db.close()
+        return removed_count

@@ -74,6 +74,9 @@ class TTLCache:
         for k in keys:
             del self._store[k]
 
+    def clear(self):
+        self._store.clear()
+
 
 # Singleton — one cache per process
 cache = TTLCache(ttl=600)

@@ -1,4 +1,4 @@
-import re, json, logging
+import re, json, logging, asyncio
 import httpx
 from bs4 import BeautifulSoup
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
@@ -41,7 +41,6 @@ class SBTScraper:
         reraise=True,
     )
     async def _fetch(self, params: dict) -> str:
-        import asyncio
         await asyncio.sleep(self.DELAY)
         async with httpx.AsyncClient(
             headers=self.HEADERS, timeout=30.0, follow_redirects=True
@@ -58,10 +57,14 @@ class SBTScraper:
             return cards
         return []
 
-    def _parse_card(self, card, make: str) -> dict | None:
+    def _parse_card(self, card, default_make: str) -> dict | None:
         try:
             text = card.get_text(separator="\n", strip=True)
             lines = [l.strip() for l in text.split("\n") if l.strip()]
+
+            # Status check
+            is_sold = "SOLD" in text.upper()
+            status = "sold" if is_sold else "active"
 
             # ── Stock ID ──
             sid = ""
@@ -70,13 +73,12 @@ class SBTScraper:
                     sid = lines[i + 1] if i + 1 < len(lines) else ""
                     break
             if not sid:
-                # Fallback: any 2-letter + 4+ digit code like AJ1907
                 m = re.search(r"\b([A-Z]{2}\d{4,})\b", text)
                 sid = m.group(1) if m else ""
             if not sid:
                 return None
 
-            # ── Price: "Vehicle Price" section, first USD amount ──
+            # ── Price ──
             price = None
             in_vehicle_price = False
             for i, line in enumerate(lines):
@@ -93,9 +95,8 @@ class SBTScraper:
                                 price = v
                                 break
                 if in_vehicle_price and "Total Price" in line:
-                    break  # Stop before total price section
+                    break
             if not price:
-                # Fallback: first USD amount after any "USD" line
                 for i, line in enumerate(lines):
                     if line == "USD":
                         if i + 1 < len(lines):
@@ -107,13 +108,12 @@ class SBTScraper:
                                     price = v
                                     break
 
-            if not price:
+            if not price and not is_sold:
                 logger.debug("[sbt] card %s: no price", sid)
                 return None
 
             # ── Year ──
             year = None
-            # First line is usually "YYYY/M TOYOTA MODEL"
             m = re.search(r"^(20\d{2})/\d{1,2}", text)
             if m:
                 year = int(m.group(1))
@@ -121,13 +121,23 @@ class SBTScraper:
                 logger.debug("[sbt] card %s: no valid year", sid)
                 return None
 
-            # ── Model ──
+            # ── Make & Model dynamic extraction ──
+            make = default_make.title()
             model = ""
-            # From first line: "2023/4 TOYOTA AQUA G" → "AQUA G"
             first_line = lines[0] if lines else ""
-            m = re.search(rf"^{year}/\d{{1,2}}\s+{re.escape(make)}\s+(.+)$", first_line, re.I)
-            if m:
-                model = m.group(1).strip()
+            
+            # Format: "2019/3 HONDA FIT 13G" -> make="Honda", model="Fit 13G"
+            mm_match = re.search(r"^\d{4}/\d{1,2}\s+([A-Za-z0-9-]+)\s+(.+)$", first_line)
+            if mm_match:
+                extracted_make = mm_match.group(1).strip()
+                extracted_model = mm_match.group(2).strip()
+                if extracted_make.upper() in SBT_MAKES or any(m in extracted_make.upper() for m in ["TOYOTA", "HONDA", "NISSAN", "MAZDA", "SUBARU", "SUZUKI", "MITSUBISHI", "DAIHATSU"]):
+                    make = extracted_make.title()
+                model = extracted_model
+            else:
+                m = re.search(rf"^{year}/\d{{1,2}}\s+{re.escape(default_make)}\s+(.+)$", first_line, re.I)
+                if m:
+                    model = m.group(1).strip()
 
             # ── Mileage ──
             mileage = None
@@ -182,7 +192,7 @@ class SBTScraper:
             return {
                 "source_id":    f"sbt_{sid}",
                 "url":          url,
-                "make":         make.title(),
+                "make":         make,
                 "model":        model,
                 "year":         year,
                 "mileage_km":   mileage,
@@ -191,6 +201,7 @@ class SBTScraper:
                 "transmission": trans,
                 "body_type":    "",
                 "price_usd":    price,
+                "status":       status,
                 "images":       json.dumps(imgs[:5]),
                 "raw_data":     str(card)[:2000],
             }
@@ -198,31 +209,73 @@ class SBTScraper:
             logger.debug("[sbt] card parse error: %s", e)
             return None
 
-    def _save_batch(self, listings: list) -> int:
+    def _save_batch(self, listings: list) -> dict:
         if not listings:
-            return 0
-        db = SessionLocal(); new = 0
+            return {"new": 0, "updated": 0, "sold": 0}
+        db = SessionLocal()
+        stats = {"new": 0, "updated": 0, "sold": 0}
         try:
             for item in listings:
                 existing = db.query(CarListing).filter_by(source_id=item["source_id"]).first()
                 if existing:
-                    existing.price_usd = item["price_usd"]
+                    if item.get("price_usd"):
+                        existing.price_usd = item["price_usd"]
+                    if item.get("make"):
+                        existing.make = item["make"]
+                    if item.get("model"):
+                        existing.model = item["model"]
+                    if item.get("status"):
+                        existing.status = item["status"]
+                        if item["status"] == "sold":
+                            stats["sold"] += 1
+                    existing.updated_at = datetime.utcnow()
+                    stats["updated"] += 1
                 else:
                     valid = {k: v for k, v in item.items()
                              if k in CarListing.__table__.columns.keys()}
                     db.add(CarListing(source=self.SOURCE, scraped_at=datetime.utcnow(), **valid))
-                    new += 1
+                    stats["new"] += 1
+                    if item.get("status") == "sold":
+                        stats["sold"] += 1
             db.commit()
         except Exception as e:
             db.rollback()
             logger.error("[sbt] DB error: %s", e)
         finally:
             db.close()
-        return new
+        return stats
 
-    async def run(self, max_pages: int = 50) -> int:
-        import asyncio
-        total = 0
+    def sync_removed(self, seen_active_ids: set) -> int:
+        """Mark active listings in DB for SBT not found in current scrape as removed."""
+        if not seen_active_ids:
+            return 0
+        db = SessionLocal()
+        removed_count = 0
+        try:
+            active_db_listings = db.query(CarListing).filter_by(
+                source=self.SOURCE, status="active"
+            ).all()
+            for listing in active_db_listings:
+                if listing.source_id not in seen_active_ids:
+                    listing.status = "removed"
+                    listing.updated_at = datetime.utcnow()
+                    removed_count += 1
+            db.commit()
+            if removed_count > 0:
+                logger.info("[sbt] Sync: marked %d missing listings as removed", removed_count)
+        except Exception as e:
+            db.rollback()
+            logger.error("[sbt] sync_removed DB error: %s", e)
+        finally:
+            db.close()
+        return removed_count
+
+    async def run(self, max_pages: int = 50) -> dict:
+        total_new = 0
+        total_updated = 0
+        total_sold = 0
+        seen_active_ids = set()
+
         for make in SBT_MAKES:
             logger.info("[sbt] scraping make: %s", make)
             for page in range(1, max_pages + 1):
@@ -241,16 +294,17 @@ class SBTScraper:
                         break
 
                     listings = [c for c in (self._parse_card(card, make) for card in cards) if c]
-                    saved    = self._save_batch(listings)
-                    total   += saved
-                    logger.info("[sbt] %s p%d: %d cards, %d saved", make, page, len(cards), saved)
+                    for item in listings:
+                        if item.get("status") == "active":
+                            seen_active_ids.add(item["source_id"])
 
-                    # Debug: if all failed, show why
-                    if not listings and cards:
-                        debug = cards[0].get_text(separator="\n", strip=True)[:400]
-                        logger.warning("[sbt] all cards failed. sample:\n%s", debug)
+                    saved_stats = self._save_batch(listings)
+                    total_new += saved_stats["new"]
+                    total_updated += saved_stats["updated"]
+                    total_sold += saved_stats["sold"]
+                    logger.info("[sbt] %s p%d: %d cards, new=%d, updated=%d", 
+                                make, page, len(cards), saved_stats["new"], saved_stats["updated"])
 
-                    # Pagination: look for next page link
                     has_next = False
                     for link in soup.select("a"):
                         href = link.get("href", "")
@@ -264,4 +318,12 @@ class SBTScraper:
                     logger.error("[sbt] %s p%d: %s", make, page, e)
                     break
                 await asyncio.sleep(self.DELAY)
-        return total
+
+        removed_count = self.sync_removed(seen_active_ids)
+        return {
+            "source": self.SOURCE,
+            "new": total_new,
+            "updated": total_updated,
+            "sold": total_sold,
+            "removed": removed_count,
+        }

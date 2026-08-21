@@ -20,9 +20,14 @@ async def run_scraper(source_name: str, max_pages: int = 5) -> int:
     logger.info("Starting scraper: %s (max %d pages)", source_name, max_pages)
     scraper = cls()
     try:
-        total = await scraper.run(max_pages=max_pages)
-        logger.info("[%s] Complete — %d new listings", source_name, total)
-        return total
+        res = await scraper.run(max_pages=max_pages)
+        if isinstance(res, dict):
+            new_cnt = res.get("new", 0)
+            logger.info("[%s] Complete — %s", source_name, res)
+            return new_cnt
+        else:
+            logger.info("[%s] Complete — %d new listings", source_name, res)
+            return res
     except Exception as e:
         logger.error("[%s] Failed: %s", source_name, e)
         return 0

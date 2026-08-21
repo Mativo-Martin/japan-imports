@@ -49,6 +49,7 @@ def test_peach_transform_local_condition():
     assert rec["price_kes"]   == 950000.0
     assert rec["year"]        == 2020
     assert rec["source_id"]   == "peach_abc-123"
+    assert rec["status"]      == "active"
 
 def test_peach_deal_price_takes_priority():
     from app.scrapers.peachcars import PeachCarsScraper
@@ -69,6 +70,14 @@ def test_peach_skips_missing_year():
     bad = {**FAKE_PEACH_RESPONSE[0], "year_of_manufacture": ""}
     assert sc._transform(bad) is None
 
+def test_peach_sold_status_detection():
+    from app.scrapers.peachcars import PeachCarsScraper
+    sc = PeachCarsScraper()
+    raw_sold = {**FAKE_PEACH_RESPONSE[0], "is_sold": True}
+    rec = sc._transform(raw_sold)
+    assert rec is not None
+    assert rec["status"] == "sold"
+
 
 # ── BE FORWARD tests (use saved HTML fixture) ─────────────────────────────────
 MINIMAL_BF_HTML = """
@@ -87,6 +96,19 @@ MINIMAL_BF_HTML = """
 </body></html>
 """
 
+MINIMAL_BF_SOLD_HTML = """
+<html><body>
+<li class="stock-list-item" data-stock-id="BF8888">
+  <span>SOLD</span>
+  <a href="/car/honda-fit-8888"></a>
+  <span class="maker-name">Honda</span>
+  <span class="model-name">Fit</span>
+  <span class="year">2020</span>
+  <span class="price">$4,500</span>
+</li>
+</body></html>
+"""
+
 def test_beforward_parses_fixture():
     from app.scrapers.beforward import BeForwardScraper
     sc      = BeForwardScraper()
@@ -100,9 +122,17 @@ def test_beforward_parses_fixture():
     assert r["engine_cc"]  == 1000
     assert r["fuel_type"]  == "petrol"     # "Gasoline" → mapped
     assert r["source_id"]  == "bf_BF9999"
+    assert r["status"]     == "active"
 
 def test_beforward_skips_pre_2018():
     from app.scrapers.beforward import BeForwardScraper
     html = MINIMAL_BF_HTML.replace("2021", "2015")
     sc   = BeForwardScraper()
     assert sc.parse(html, 1) == []
+
+def test_beforward_sold_status_detection():
+    from app.scrapers.beforward import BeForwardScraper
+    sc = BeForwardScraper()
+    results = sc.parse(MINIMAL_BF_SOLD_HTML, page=1)
+    assert len(results) == 1
+    assert results[0]["status"] == "sold"
