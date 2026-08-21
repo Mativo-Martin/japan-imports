@@ -29,10 +29,8 @@ export default function Dashboard() {
       <h2 className="sr-only">Japan to Kenya car import dashboard overview</h2>
 
       <div className="stat-grid">
-        <StatCard label="Import listings"     value={fmtN(ov?.bf_count)}      sub="BE FORWARD · cleaned"   accent="teal"   icon="ti-car" />
-        <StatCard label="Avg Japan price"     value={fmtUSD(ov?.bf_avg_usd)}  sub="FOB Japan market"       accent="orange" icon="ti-coin" />
-        <StatCard label="Cheapest import"     value={fmtUSD(ov?.bf_min_usd)}  sub="Lowest BF listing"      accent="teal"   icon="ti-tag" />
-        <StatCard label="Local KE listings"   value={fmtN(ov?.local_count)}   sub="Peach Cars · Nairobi"   accent="rust"   icon="ti-map-pin" />
+        <StatCard label="Import listings"     value={fmtN(ov?.bf_count)}      sub="stats · cleaned"   accent="teal"   icon="ti-car" />
+        <StatCard label="Avg Japan price"     value={fmtUSD(ov?.bf_avg_usd)}  sub=""       accent="orange" icon="ti-coin" />
         <StatCard label="Avg local price"     value={fmtKES(ov?.local_avg_kes)} sub="Kenya market"         accent="navy"   icon="ti-building-store" />
         <StatCard label="Makes available"     value={fmtN(ov?.unique_makes)}  sub={`${fmtN(ov?.unique_models)} models`} accent="teal" icon="ti-components" />
       </div>

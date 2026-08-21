@@ -6,9 +6,21 @@
 /* Stat grid */
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
-  margin-bottom: 32px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: clamp(12px, 2vw, 20px);
+  margin-bottom: clamp(20px, 4vw, 32px);
+}
+
+@media (max-width: 640px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .stat-card {
@@ -48,13 +60,20 @@
 .charts-row {
   display: grid;
   grid-template-columns: 1.4fr 1fr;
-  gap: 24px;
-  margin-bottom: 32px;
+  gap: clamp(16px, 3vw, 24px);
+  margin-bottom: clamp(20px, 4vw, 32px);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .charts-row {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .charts-row {
+    grid-template-columns: 1fr;
+    gap: clamp(12px, 2vw, 16px);
   }
 }
 
@@ -185,7 +204,7 @@
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 13px;
+  font-size: clamp(11px, 2vw, 13px);
 }
 
 .savings-table thead tr {
@@ -193,9 +212,9 @@
 }
 
 .savings-table th {
-  padding: 12px 18px;
+  padding: clamp(10px, 2vw, 12px) clamp(12px, 2vw, 18px);
   text-align: left;
-  font-size: 11px;
+  font-size: clamp(10px, 1.5vw, 11px);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -204,10 +223,11 @@
   position: sticky;
   top: 0;
   z-index: 10;
+  background: var(--surface);
 }
 
 .savings-table td {
-  padding: 12px 18px;
+  padding: clamp(10px, 2vw, 12px) clamp(12px, 2vw, 18px);
   border-bottom: 1px solid var(--border);
   color: var(--text-sec);
   transition: background var(--duration-fast);

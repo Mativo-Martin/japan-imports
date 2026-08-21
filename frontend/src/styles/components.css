@@ -1,4 +1,15 @@
-.card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 24px}
+.card{
+  background:var(--white);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:20px 24px;
+  transition:all .2s;
+  box-shadow:var(--shadow-sm);
+}
+.card:hover{
+  border-color:var(--border-md);
+  box-shadow:var(--shadow-md);
+}
 .card-error{background:rgba(160,41,45,0.05);border-color:#a0292d}
 .card-empty{background:var(--surface);border:1px dashed var(--border)}
 
@@ -9,6 +20,13 @@
   padding:18px 20px;
   position:relative;
   overflow:hidden;
+  transition:all .2s;
+  box-shadow:var(--shadow-sm);
+}
+.stat-card:hover{
+  border-color:var(--border-md);
+  box-shadow:var(--shadow-md);
+  transform:translateY(-2px);
 }
 .stat-card.accent-orange{border-top:3px solid var(--orange)}
 .stat-card.accent-teal{border-top:3px solid var(--teal)}
@@ -74,15 +92,20 @@
   font-size:13.5px;font-weight:500;
   border:1px solid transparent;
   cursor:pointer;
-  transition:all .15s;
+  transition:all .2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow:var(--shadow-sm);
 }
-.btn:active{transform:scale(.98)}
+.btn:hover:not(:disabled){
+  transform:translateY(-1px);
+  box-shadow:var(--shadow-md);
+}
+.btn:active:not(:disabled){transform:translateY(0);box-shadow:var(--shadow-sm)}
 .btn-primary{background:var(--teal);color:var(--white);border-color:var(--teal)}
-.btn-primary:hover{background:var(--teal-lt)}
+.btn-primary:hover:not(:disabled){background:var(--teal-lt);box-shadow:0 8px 16px rgba(21,97,109,.2)}
 .btn-orange{background:var(--orange);color:var(--white);border-color:var(--orange)}
-.btn-orange:hover{background:var(--orange-lt)}
-.btn-ghost{background:transparent;color:var(--text-sec);border-color:var(--border-md)}
-.btn-ghost:hover{background:var(--surface2);color:var(--navy)}
+.btn-orange:hover:not(:disabled){background:var(--orange-lt);box-shadow:0 8px 16px rgba(255,125,0,.2)}
+.btn-ghost{background:transparent;color:var(--text-sec);border-color:var(--border-md);box-shadow:none}
+.btn-ghost:hover:not(:disabled){background:var(--surface2);color:var(--navy);border-color:var(--border-md);box-shadow:none}
 .btn-sm{padding:6px 13px;font-size:12.5px}
 .btn-lg{padding:12px 24px;font-size:15px}
 .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
@@ -117,3 +140,93 @@ textarea:focus,.form-field textarea:focus{
 .error-msg{color:#a0292d;font-size:13px;margin-top:4px}
 .error-box{display:flex;align-items:center;gap:12px;color:#a0292d;font-size:13px;padding:12px}
 .error-box i{font-size:18px;flex-shrink:0}
+
+/* Pagination */
+.pagination{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  padding:20px 0;
+  flex-wrap:wrap;
+}
+.pagination-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:8px 14px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--border);
+  background:var(--white);
+  color:var(--text-sec);
+  font-size:13px;
+  font-weight:500;
+  cursor:pointer;
+  transition:all .2s;
+  box-shadow:var(--shadow-sm);
+}
+.pagination-btn:not(:disabled):hover{
+  background:var(--surface2);
+  border-color:var(--border-md);
+  transform:translateY(-1px);
+  box-shadow:var(--shadow-md);
+}
+.pagination-btn:disabled{
+  opacity:.4;
+  cursor:not-allowed;
+  background:var(--surface);
+}
+.pagination-btn i{font-size:14px}
+.pagination-btn-label{display:none}
+.pagination-numbers{
+  display:flex;
+  align-items:center;
+  gap:4px;
+}
+.pagination-number{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-width:34px;
+  height:34px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--border);
+  background:var(--white);
+  color:var(--text-sec);
+  font-size:12px;
+  font-weight:500;
+  cursor:pointer;
+  transition:all .2s;
+  box-shadow:var(--shadow-sm);
+}
+.pagination-number:hover:not(.active){
+  border-color:var(--border-md);
+  background:var(--surface2);
+  transform:scale(1.05);
+}
+.pagination-number.active{
+  background:var(--teal);
+  color:var(--white);
+  border-color:var(--teal);
+  box-shadow:0 4px 12px rgba(21,97,109,.2);
+  font-weight:600;
+}
+.pagination-dots{
+  padding:0 4px;
+  color:var(--text-muted);
+}
+.pagination-info{
+  font-size:12px;
+  color:var(--text-muted);
+  white-space:nowrap;
+}
+.pagination-current,.pagination-total{
+  font-weight:600;
+  color:var(--navy);
+}
+
+@media (max-width:768px){
+  .pagination-btn-label{display:inline}
+  .pagination-numbers{gap:2px}
+  .pagination-number{min-width:30px;height:30px;font-size:11px}
+}

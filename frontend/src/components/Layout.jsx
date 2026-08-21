@@ -29,7 +29,7 @@ export default function Layout() {
           <span className="brand-icon">🇯🇵</span>
           {!collapsed && (
             <div className="brand-text">
-              <span className="brand-name">CarImport</span>
+              <span className="brand-name">Vehicle Imports</span>
               <span className="brand-sub">Kenya · Japan</span>
             </div>
           )}
@@ -71,10 +71,10 @@ export default function Layout() {
         <header className="topbar">
           <h1 className="topbar-title">{pageTitle}</h1>
           <div className="topbar-right">
-            <span className="topbar-badge">
+            {/* <span className="topbar-badge">
               <i className="ti ti-refresh" aria-hidden="true" style={{ fontSize: 13 }} />
               Updated daily
-            </span>
+            </span> */}
           </div>
         </header>
         <main className="page-content">
