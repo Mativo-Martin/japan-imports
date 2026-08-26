@@ -5,6 +5,9 @@ import { useMakes, useModels }  from "../hooks/useListings";
 const fmtUSD = (n) => n ? `$${Math.round(n).toLocaleString()}` : "—";
 const fmtKES = (n) => n ? `KES ${Math.round(n).toLocaleString()}` : "—";
 
+const FUELS = ["petrol", "diesel", "hybrid", "electric"];
+const TRANSMISSIONS = ["automatic", "manual", "cvt"];
+
 export default function Predictor() {
   const [form, setForm] = useState({
     make: "Toyota", model: "Vitz", year: 2021,
@@ -16,16 +19,8 @@ export default function Predictor() {
   const { data: models } = useModels(form.make);
   const { mutate, data, isPending, isError, error } = usePredictWithImport();
 
-  const field = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+  const field  = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
   const submit = (e) => { e.preventDefault(); mutate(form); };
-
-  const inp = (label, key, type="text", opts={}) => (
-    <div className="form-group">
-      <label className="form-label">{label}</label>
-      <input type={type} value={form[key]} onChange={field(key)} {...opts}
-        className="form-field" />
-    </div>
-  );
 
   return (
     <div className="predictor-page">
@@ -34,45 +29,101 @@ export default function Predictor() {
         ML model predicts Japan market price then calculates full KES landed cost.
       </p>
 
-      <form onSubmit={submit} className="predictor-form">
-        <div className="form-group">
-          <label className="form-label">Make</label>
-          <select value={form.make} onChange={field("make")} className="form-field">
+      <form onSubmit={submit} className="predictor-form" aria-label="Price prediction inputs">
+        {/* Make */}
+        <div className="form-field">
+          <label htmlFor="pred-make">Make</label>
+          <select id="pred-make" value={form.make} onChange={field("make")}>
             {makes?.map(m => <option key={m.make} value={m.make}>{m.make}</option>)}
           </select>
         </div>
-        <div className="form-group">
-          <label className="form-label">Model</label>
-          <select value={form.model} onChange={field("model")} className="form-field">
+
+        {/* Model */}
+        <div className="form-field">
+          <label htmlFor="pred-model">Model</label>
+          <select id="pred-model" value={form.model} onChange={field("model")}>
             {models?.map(m => <option key={m.model} value={m.model}>{m.model}</option>)}
           </select>
         </div>
-        {inp("Year", "year", "number", { min:2018, max:2026 })}
-        {inp("Mileage (km)", "mileage_km", "number", { min:0 })}
-        {inp("Engine cc", "engine_cc", "number", { min:500 })}
-        <div className="form-group">
-          <label className="form-label">Fuel</label>
-          <select value={form.fuel_type} onChange={field("fuel_type")} className="form-field">
-            {["petrol","diesel","hybrid","electric"].map(f => <option key={f} value={f}>{f}</option>)}
+
+        {/* Year */}
+        <div className="form-field">
+          <label htmlFor="pred-year">Year</label>
+          <input
+            id="pred-year"
+            type="number"
+            value={form.year}
+            onChange={field("year")}
+            min={2018}
+            max={2026}
+          />
+        </div>
+
+        {/* Mileage */}
+        <div className="form-field">
+          <label htmlFor="pred-mileage">Mileage (km)</label>
+          <input
+            id="pred-mileage"
+            type="number"
+            value={form.mileage_km}
+            onChange={field("mileage_km")}
+            min={0}
+          />
+        </div>
+
+        {/* Engine */}
+        <div className="form-field">
+          <label htmlFor="pred-engine">Engine (cc)</label>
+          <input
+            id="pred-engine"
+            type="number"
+            value={form.engine_cc}
+            onChange={field("engine_cc")}
+            min={500}
+          />
+        </div>
+
+        {/* Fuel */}
+        <div className="form-field">
+          <label htmlFor="pred-fuel">Fuel type</label>
+          <select id="pred-fuel" value={form.fuel_type} onChange={field("fuel_type")}>
+            {FUELS.map(f => <option key={f} value={f}>{f}</option>)}
           </select>
         </div>
-        <div className="form-group">
-          <label className="form-label">Transmission</label>
-          <select value={form.transmission} onChange={field("transmission")} className="form-field">
-            {["automatic","manual","cvt"].map(t => <option key={t} value={t}>{t}</option>)}
+
+        {/* Transmission */}
+        <div className="form-field">
+          <label htmlFor="pred-trans">Transmission</label>
+          <select id="pred-trans" value={form.transmission} onChange={field("transmission")}>
+            {TRANSMISSIONS.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
-        <div style={{ display: "flex", alignItems: "flex-end" }}>
-          <button type="submit" disabled={isPending} className="btn btn-primary" style={{ width: "100%" }}>
-            {isPending ? "Predicting…" : "Predict price"}
+
+        {/* Submit */}
+        <div style={{ gridColumn: "1 / -1" }}>
+          <button
+            type="submit"
+            disabled={isPending}
+            className="btn btn-primary"
+            aria-busy={isPending}
+          >
+            {isPending
+              ? <><i className="ti ti-loader-2" aria-hidden="true" style={{ animation: "spin .7s linear infinite" }} /> Predicting…</>
+              : <><i className="ti ti-brain" aria-hidden="true" /> Predict price</>
+            }
           </button>
         </div>
       </form>
 
-      {isError && <div className="error-msg">{error.message}</div>}
+      {isError && (
+        <div className="error-box" role="alert">
+          <i className="ti ti-alert-circle" aria-hidden="true" />
+          <span>{error.message}</span>
+        </div>
+      )}
 
       {data && (
-        <div className="predictor-results">
+        <div className="predictor-results" role="region" aria-label="Prediction results">
           <div className="prediction-card prediction-japan">
             <div className="pred-label">Predicted Japan price</div>
             <div className="pred-value">
@@ -85,6 +136,7 @@ export default function Predictor() {
               Model MAE: ±{fmtUSD(data.prediction.model_mae_usd)}
             </div>
           </div>
+
           <div className="prediction-card prediction-landed">
             <div className="pred-label">Total landed cost (Kenya)</div>
             <div className="pred-value">

@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════
    Dashboard Page
    ═══════════════════════════════════════════ */
-.dashboard {}
+/* Dashboard page root */.dashboard {position:relative}
 
 /* Stat grid */
 .stat-grid {
@@ -200,6 +200,13 @@
 }
 
 /* Savings table */
+/* Savings table wrapper — enables horizontal scroll on mobile */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-lg);
+}
+
 .savings-table {
   width: 100%;
   border-collapse: separate;
@@ -207,6 +214,7 @@
   font-size: clamp(11px, 2vw, 13px);
 }
 
+/* Savings table */
 .savings-table thead tr {
   background: var(--surface);
 }
@@ -220,10 +228,7 @@
   text-transform: uppercase;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: var(--surface);
+  white-space: nowrap;
 }
 
 .savings-table td {
@@ -1014,7 +1019,7 @@
 /* ═══════════════════════════════════════════
    Compare Page
    ═══════════════════════════════════════════ */
-.compare-page {}
+.compare-page {container-type:inline-size}
 
 .compare-layout {
   display: grid;
@@ -1028,7 +1033,7 @@
   }
 }
 
-.compare-form-col {}
+.compare-form-col {min-width:0}
 
 .form-title {
   font-size: 16px;
@@ -1091,7 +1096,7 @@
   box-shadow: 0 4px 12px rgba(21, 97, 109, 0.25);
 }
 
-.compare-result-col {}
+.compare-result-col {min-width:0}
 
 .verdict-banner {
   border-radius: var(--radius-lg);

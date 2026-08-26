@@ -91,35 +91,40 @@ export default function Dashboard() {
           />
         ) : (
           <Card style={{ padding: 0, overflow: "hidden" }}>
-            <table className="savings-table">
-              <thead>
-                <tr>
-                  {["Make","Model","Year","Landed KES","Local KES","Saving","Verdict"].map(h => (
-                    <th key={h}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sav.slice(0, 12).map((r, i) => (
-                  <tr key={i}>
-                    <td><strong>{r.make}</strong></td>
-                    <td>{r.model}</td>
-                    <td>{r.year}</td>
-                    <td>{fmtKES(r.total_landed_kes)}</td>
-                    <td>{fmtKES(r.median_local_kes)}</td>
-                    <td className={r.saving_kes > 0 ? "saving-pos" : "saving-neg"}>
-                      {r.saving_kes > 0 ? "+" : ""}{fmtKES(r.saving_kes)}
-                      <span className="saving-pct"> ({r.saving_pct}%)</span>
-                    </td>
-                    <td>
-                      <Badge variant={r.verdict === "import" ? "teal" : "rust"}>
-                        {r.verdict === "import" ? "Import" : "Buy local"}
-                      </Badge>
-                    </td>
+            <div className="table-scroll">
+              <table className="savings-table">
+                <caption className="sr-only">
+                  Import vs local market price comparison by make, model and year
+                </caption>
+                <thead>
+                  <tr>
+                    {["Make","Model","Year","Landed KES","Local KES","Saving","Verdict"].map(h => (
+                      <th key={h} scope="col">{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {sav.slice(0, 12).map((r, i) => (
+                    <tr key={i}>
+                      <td><strong>{r.make}</strong></td>
+                      <td>{r.model}</td>
+                      <td>{r.year}</td>
+                      <td>{fmtKES(r.total_landed_kes)}</td>
+                      <td>{fmtKES(r.median_local_kes)}</td>
+                      <td className={r.saving_kes > 0 ? "saving-pos" : "saving-neg"}>
+                        {r.saving_kes > 0 ? "+" : ""}{fmtKES(r.saving_kes)}
+                        <span className="saving-pct"> ({r.saving_pct}%)</span>
+                      </td>
+                      <td>
+                        <Badge variant={r.verdict === "import" ? "teal" : "rust"}>
+                          {r.verdict === "import" ? "Import" : "Buy local"}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Card>
         )}
       </Section>

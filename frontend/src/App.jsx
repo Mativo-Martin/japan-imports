@@ -3,6 +3,7 @@ import "./styles/global.css";
 import "./styles/layout.css";
 import "./styles/components.css";
 import "./styles/pages.css";
+import "./styles/responsive.css";
 import Layout       from "./components/Layout";
 import Dashboard    from "./pages/Dashboard";
 import Search       from "./pages/Search";
