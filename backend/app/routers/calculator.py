@@ -68,7 +68,7 @@ async def estimate_import_cost(
 async def compare_prices(
     make:  str = Query(...),
     model: str = Query(...),
-    year:  int = Query(..., ge=2018, le=2025),
+    year:  int = Query(..., ge=2018, le=2030),
     db: Session = Depends(get_db),
 ):
     rate   = await get_usd_kes()

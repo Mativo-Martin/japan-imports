@@ -1,0 +1,8 @@
+{
+  "name": "JapanEazy",
+  "description": "Japan vehicle import cost calculator, KRA customs tax breakdown, price comparisons, and AI valuation for the Kenyan market.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

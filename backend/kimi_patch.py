@@ -100,8 +100,13 @@ sys.path.insert(0, BASE)
 from app.database import engine
 from sqlalchemy import text
 
-# Count current data across all import sources
+# Count and purge mock seed data across all import sources
 with engine.connect() as conn:
+    # Purge mock seed data containing unsplash images or mock ids
+    conn.execute(text("DELETE FROM car_listings WHERE images LIKE '%unsplash%' OR source_id LIKE 'bf_toyota_yaris_2023'"))
+    conn.execute(text("DELETE FROM local_listings WHERE images_json LIKE '%unsplash%' OR source_id LIKE 'peach_demio_2020'"))
+    conn.commit()
+
     r = conn.execute(text("""
         SELECT COUNT(*) as n
         FROM car_listings
@@ -124,19 +129,23 @@ log.info("Current eligible import rows: %d", n_imports)
 log.info("Current local listing rows:  %d", n_local)
 
 async def run_scrapers():
-    """Launch BE FORWARD, SBT, and Peach concurrently."""
+    """Launch BE FORWARD, SBT, and Peach concurrently across diverse vehicle makes."""
     tasks = []
 
     # BE FORWARD
     try:
         from app.scrapers.beforward import BeForwardScraper
         import app.scrapers.beforward as bf_mod
-        bf_mod.BF_MAKES = ["TOYOTA", "HONDA", "NISSAN", "MAZDA", "SUBARU"]
+        bf_mod.BF_MAKES = [
+            "TOYOTA", "HONDA", "NISSAN", "MAZDA", "SUBARU", "SUZUKI",
+            "MITSUBISHI", "ISUZU", "DAIHATSU", "VOLKSWAGEN", "MERCEDES-BENZ",
+            "BMW", "AUDI", "LAND ROVER"
+        ]
         async def scrape_bf():
             scraper = BeForwardScraper()
-            return ("beforward", await scraper.run(max_pages=30))
+            return ("beforward", await scraper.run(max_pages=20))
         tasks.append(scrape_bf())
-        log.info("Scheduled BE FORWARD scraper")
+        log.info("Scheduled BE FORWARD scraper (%d makes)", len(bf_mod.BF_MAKES))
     except Exception as e:
         log.warning("BE FORWARD scraper not available: %s", e)
 

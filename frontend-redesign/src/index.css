@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #000000;
+    background-color: #F6F7EB;
+
+    --brand-black: #000000;
+    --brand-forest: #0E402D;
+    --brand-pine: #295135;
+    --brand-lime: #6BD425;
+    --brand-alabaster: #F6F7EB;
+  }
+
+  body {
+    background-color: #F6F7EB;
+    color: #000000;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
+    letter-spacing: -0.025em;
+  }
+
+  .font-mono-num {
+    font-family: 'Space Grotesk', ui-monospace, SFMono-Regular, monospace;
+    font-feature-settings: 'tnum';
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Custom Minimalist Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #F6F7EB;
+}
+::-webkit-scrollbar-thumb {
+  background: #295135;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #0E402D;
+}
+
+/* Design Tokens & Surfaces */
+.jp-card {
+  background-color: #ffffff;
+  border: 1px solid rgba(14, 64, 45, 0.08);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.02), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s ease-in-out;
+}
+
+.jp-card:hover {
+  border-color: rgba(14, 64, 45, 0.22);
+  box-shadow: 0 6px 20px -4px rgba(14, 64, 45, 0.08);
+}
+
+.jp-panel {
+  background-color: #ffffff;
+  border: 1px solid rgba(14, 64, 45, 0.08);
+}
+
+.jp-surface-subtle {
+  background-color: #F6F7EB;
+}
+
+/* Badge Utilities */
+.jp-lime-pill {
+  background-color: rgba(107, 212, 37, 0.12);
+  color: #0E402D;
+  border: 1px solid rgba(107, 212, 37, 0.35);
+}
+
+.jp-forest-pill {
+  background-color: #0E402D;
+  color: #ffffff;
+  border: 1px solid #0E402D;
+}
+
+.jp-pine-pill {
+  background-color: rgba(41, 81, 53, 0.1);
+  color: #295135;
+  border: 1px solid rgba(41, 81, 53, 0.2);
+}

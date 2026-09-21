@@ -1,11 +1,11 @@
 {
-  "mae": 3493.92,
-  "train_mae": 3190.01,
-  "rmse": 4267.9,
-  "r2": 0.8209,
-  "mape": 42.16,
-  "n_train": 161,
-  "n_test": 41,
+  "mae": 3563.62,
+  "train_mae": 735.76,
+  "rmse": 5373.34,
+  "r2": 0.3294,
+  "mape": 52.18,
+  "n_train": 55,
+  "n_test": 14,
   "features": [
     "car_age",
     "log_mileage",
@@ -17,21 +17,21 @@
     "body_type"
   ],
   "feature_importance": {
-    "car_age": 0.1845,
-    "log_mileage": 0.0935,
-    "engine_cc": 0.2723,
-    "make": 0.1402,
-    "model": 0.0549,
-    "fuel_type": 0.0535,
-    "transmission": 0.1057,
-    "body_type": 0.0954,
-    "source": 0.0
+    "car_age": 0.0812,
+    "log_mileage": 0.0628,
+    "engine_cc": 0.411,
+    "make": 0.0734,
+    "model": 0.0762,
+    "fuel_type": 0.2243,
+    "transmission": 0.0,
+    "body_type": 0.0378,
+    "source": 0.0332
   },
   "quantile_metrics": {
-    "q25_residual_usd": 1634.38,
-    "q75_residual_usd": 5002.94,
-    "interval_width_usd": 3368.55,
-    "coverage_pct": 68.29,
-    "residual_std_usd": 2451.02
+    "q25_residual_usd": 1135.35,
+    "q75_residual_usd": 4893.77,
+    "interval_width_usd": 3758.42,
+    "coverage_pct": 92.86,
+    "residual_std_usd": 4021.62
   }
 }

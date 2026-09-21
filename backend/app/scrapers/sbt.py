@@ -16,6 +16,7 @@ TRANS_MAP = {"at":"automatic","auto":"automatic","automatic":"automatic",
 SBT_MAKES = [
     "TOYOTA", "NISSAN", "HONDA", "MAZDA",
     "SUBARU", "SUZUKI", "MITSUBISHI", "DAIHATSU",
+    "ISUZU", "VOLKSWAGEN", "MERCEDES-BENZ", "BMW", "AUDI", "LAND ROVER"
 ]
 
 
@@ -187,7 +188,15 @@ class SBTScraper:
             url = ("https://www.sbtjapan.com" + href) if href.startswith("/") else (href or None)
 
             # ── Images ──
-            imgs = [img["src"] for img in card.select("img[src]") if "carphoto" in img.get("src", "")]
+            imgs = []
+            for img in card.select("img"):
+                src = img.get("src") or img.get("data-src") or img.get("data-original") or ""
+                if not src or any(x in src.lower() for x in ["placeholder", "logo", "icon", "svg", "comingsoon"]):
+                    continue
+                if "carphoto" in src or "img.sbtjapan.com" in src:
+                    if src.startswith("//"):
+                        src = "https:" + src
+                    imgs.append(src)
 
             return {
                 "source_id":    f"sbt_{sid}",
@@ -218,16 +227,15 @@ class SBTScraper:
             for item in listings:
                 existing = db.query(CarListing).filter_by(source_id=item["source_id"]).first()
                 if existing:
-                    if item.get("price_usd"):
-                        existing.price_usd = item["price_usd"]
-                    if item.get("make"):
-                        existing.make = item["make"]
-                    if item.get("model"):
-                        existing.model = item["model"]
-                    if item.get("status"):
-                        existing.status = item["status"]
-                        if item["status"] == "sold":
-                            stats["sold"] += 1
+                    update_fields = [
+                        "price_usd", "status", "url", "images", "make", "model",
+                        "year", "mileage_km", "engine_cc", "fuel_type", "transmission", "body_type"
+                    ]
+                    for k in update_fields:
+                        if item.get(k) is not None:
+                            setattr(existing, k, item[k])
+                    if item.get("status") == "sold":
+                        stats["sold"] += 1
                     existing.updated_at = datetime.utcnow()
                     stats["updated"] += 1
                 else:

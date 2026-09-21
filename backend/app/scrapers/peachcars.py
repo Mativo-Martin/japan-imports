@@ -112,6 +112,20 @@ class PeachCarsScraper:
             veh_status = raw.get("vehicle_used_status", "")
             is_sold = raw.get("is_sold", False) or raw.get("status") == "sold"
 
+            raw_imgs = raw.get("images", [])
+            imgs = []
+            for im in raw_imgs:
+                if isinstance(im, str) and im.strip():
+                    url_str = im.strip()
+                    if url_str.startswith("//"):
+                        url_str = "https:" + url_str
+                    imgs.append(url_str)
+                elif isinstance(im, dict) and im.get("url"):
+                    url_str = im["url"].strip()
+                    if url_str.startswith("//"):
+                        url_str = "https:" + url_str
+                    imgs.append(url_str)
+
             return {
                 "source_id":    f"peach_{raw['id']}",
                 "source":       self.SOURCE,
@@ -129,7 +143,7 @@ class PeachCarsScraper:
                 "condition":    "local_used" if veh_status == "Locally" else "imported_used",
                 "location":     "Nairobi",
                 "listing_url":  f"https://peachcars.co.ke/cars/{raw.get('slug', '')}",
-                "images_json":  json.dumps(raw.get("images", [])[:5]),
+                "images_json":  json.dumps(imgs[:5]),
                 "status":       "sold" if is_sold else "active",
                 "scraped_at":   datetime.utcnow(),
             }
@@ -151,10 +165,14 @@ class PeachCarsScraper:
                     source_id=rec["source_id"]).first()
 
                 if existing:
-                    existing.price_kes  = rec["price_kes"]
-                    existing.mileage_km = rec["mileage_km"]
-                    existing.status     = rec["status"]
-                    existing.scraped_at = rec["scraped_at"]
+                    update_fields = [
+                        "price_kes", "mileage_km", "status", "scraped_at", "images_json",
+                        "listing_url", "make", "model", "year", "engine_cc", "fuel_type",
+                        "transmission", "body_type", "drive_type", "color", "condition", "location"
+                    ]
+                    for k in update_fields:
+                        if rec.get(k) is not None:
+                            setattr(existing, k, rec[k])
                     if rec["status"] == "sold":
                         stats["sold"] += 1
                     stats["updated"] += 1

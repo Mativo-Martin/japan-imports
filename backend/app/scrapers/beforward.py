@@ -24,7 +24,9 @@ TRANS_MAP = {
 
 MAKE_IDS = {
     "TOYOTA": 1, "HONDA": 2, "NISSAN": 3, "MAZDA": 4,
-    "MITSUBISHI": 5, "SUBARU": 6, "SUZUKI": 7,
+    "MITSUBISHI": 5, "SUBARU": 6, "SUZUKI": 7, "ISUZU": 8,
+    "DAIHATSU": 9, "MERCEDES-BENZ": 14, "BMW": 15, "VOLKSWAGEN": 16,
+    "AUDI": 17, "LAND ROVER": 29,
 }
 BF_MAKES = list(MAKE_IDS.keys())
 
@@ -287,8 +289,14 @@ class BeForwardScraper:
             url = (self.BASE + href) if href.startswith("/") else (href or None)
 
             # ── Images ──
-            imgs = [img["src"] for img in card.select("img[src]") 
-                    if not any(x in img.get("src", "") for x in ["placeholder", "logo", "icon"])]
+            imgs = []
+            for img in card.select("img"):
+                src = img.get("src") or img.get("data-src") or img.get("data-original") or ""
+                if not src or any(x in src.lower() for x in ["placeholder", "logo", "icon", "blank.gif"]):
+                    continue
+                if src.startswith("//"):
+                    src = "https:" + src
+                imgs.append(src)
 
             return {
                 "source_id":    f"bf_{sid}",
@@ -325,12 +333,15 @@ class BeForwardScraper:
             for item in listings:
                 ex = db.query(CarListing).filter_by(source_id=item["source_id"]).first()
                 if ex:
-                    if item.get("price_usd"):
-                        ex.price_usd = item["price_usd"]
-                    if item.get("status"):
-                        ex.status = item["status"]
-                        if item["status"] == "sold":
-                            stats["sold"] += 1
+                    update_fields = [
+                        "price_usd", "status", "url", "images", "make", "model",
+                        "year", "mileage_km", "engine_cc", "fuel_type", "transmission", "body_type"
+                    ]
+                    for k in update_fields:
+                        if item.get(k) is not None:
+                            setattr(ex, k, item[k])
+                    if item.get("status") == "sold":
+                        stats["sold"] += 1
                     ex.updated_at = datetime.utcnow()
                     stats["updated"] += 1
                 else:

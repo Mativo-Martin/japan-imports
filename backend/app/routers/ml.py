@@ -17,6 +17,8 @@ class PredictRequest(BaseModel):
     fuel_type:    Optional[str]   = Field("petrol", example="petrol")
     transmission: Optional[str]   = Field("automatic", example="automatic")
     body_type:    Optional[str]   = Field("hatchback", example="hatchback")
+    drive_type:   Optional[str]   = Field(None, example="2wd")
+    condition_score: Optional[float] = Field(None, example=4.5)
     source:       Optional[str]   = Field("beforward", example="sbt_japan")
 
 

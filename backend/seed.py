@@ -13,11 +13,7 @@ SEED = [
          fuel_type="petrol", transmission="cvt",
          body_type="hatchback", price_usd=5800, is_cleaned=True,
          scraped_at=datetime.utcnow()),
-    dict(source="carfromjapan", source_id="CFJ001", make="Nissan",
-         model="Note", year=2021, mileage_km=28000, engine_cc=1200,
-         fuel_type="hybrid", transmission="automatic",
-         body_type="hatchback", price_usd=9200, is_cleaned=True,
-         scraped_at=datetime.utcnow()),
+    
 ]
 
 db = SessionLocal()

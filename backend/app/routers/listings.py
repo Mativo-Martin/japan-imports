@@ -1,5 +1,7 @@
+from app.config import sources
 from fastapi import APIRouter, Query, HTTPException
 from fastapi.responses import JSONResponse
+from decimal import Decimal
 from typing import Optional
 from sqlalchemy import select, func, and_, text
 from pydantic import BaseModel
@@ -18,18 +20,24 @@ class ListingOut(BaseModel):
     make: str
     model: str
     year: int
-    mileage_km: Optional[int]
-    engine_cc: Optional[int]
-    fuel_type: Optional[str]
-    transmission: Optional[str]
-    body_type: Optional[str]
-    price_usd: Optional[float]    
-    url: Optional[str]
+    mileage_km: Optional[int] = None
+    engine_cc: Optional[int] = None
+    fuel_type: Optional[str] = None
+    transmission: Optional[str] = None
+    body_type: Optional[str] = None
+    color: Optional[str] = None
+    auction_grade: Optional[str] = None
+    location_jp: Optional[str] = None
+    images: Optional[str] = None
+    price_usd: Optional[float] = None
+    price_kes: Optional[float] = None
+    url: Optional[str] = None
     status: Optional[str] = "active"
-    scraped_at: Optional[datetime]
+    scraped_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
 
 
 def _serialize_row(row):
@@ -38,6 +46,8 @@ def _serialize_row(row):
     for k, v in list(d.items()):
         if isinstance(v, datetime):
             d[k] = v.isoformat()
+        elif isinstance(v, Decimal):
+            d[k] = float(v)
     return d
 
 
@@ -45,7 +55,11 @@ def _serialize_row(row):
 def get_listings(
     db: DBDep,
     pagination: PaginationDep,
-    source: Optional[str] = Query(None, description="Filter by source: beforward, sbt, peachcars, or all"),
+    source: Optional[str] = Query(
+        None,
+        description=f"Filter by source: {', '.join(ALL_SOURCES)}, or all",
+        regex=f"^(all|{'|'.join(ALL_SOURCES)})$"
+    ),
     make: Optional[str] = Query(None),
     model: Optional[str] = Query(None),
     year_min: int = Query(2018),
@@ -55,10 +69,11 @@ def get_listings(
     fuel_type: Optional[str] = Query(None),
     body_type: Optional[str] = Query(None),
     status: Optional[str] = Query("active", description="Filter by status: active (default), sold, removed, or all"),
-    sort_by: str = Query("price_usd", regex="^(price_usd|year|mileage_km|scraped_at)$"),
+    sort_by: str = Query("price_usd", regex="^(price_usd|year|mileage_km|scraped_at|id)$"),
     sort_order: str = Query("asc", regex="^(asc|desc)$"),
 ):
     try:
+        source_lower = source.lower() if source else None
         cache_key = f"listings:{source}:{make}:{model}:{year_min}:{year_max}:{price_min}:{price_max}:{fuel_type}:{body_type}:{status}:{sort_by}:{sort_order}:{pagination.page}:{pagination.page_size}"
         cached = cache.get(cache_key)
         if cached:
@@ -80,23 +95,38 @@ def get_listings(
         query_parts = []
 
         # Part 1: CarListing (beforward, sbt)
-        if not source or source.lower() in ("all", "import", "beforward", "sbt"):
-            src_cond = f"AND source = '{source.lower()}'" if source and source.lower() in ("beforward", "sbt") else ""
+        if not source_lower or source_lower in IMPORT_SOURCES:
+            src_cond = (
+                f"AND source = '{source_lower}'"
+                if source_lower and source_lower in IMPORT_SOURCES
+                else ""
+            )
+
             query_parts.append(f"""
                 SELECT id, source, make, model, year, mileage_km, engine_cc, fuel_type, transmission, body_type,
-                       price_usd, ROUND((price_usd * {usd_rate})::numeric, 0) as price_kes, url, status, scraped_at
+                       price_usd, ROUND((price_usd * {usd_rate})::numeric, 0) as price_kes, url, status, scraped_at, images
                 FROM car_listings
                 WHERE is_cleaned = true AND {status_filter} {src_cond} {make_filter} {model_filter} {year_filter} {fuel_filter} {body_filter} {price_filter_import}
             """)
 
         # Part 2: LocalListing (peachcars)
-        if not source or source.lower() in ("all", "local", "peachcars"):
-            src_cond = f"AND source = '{source.lower()}'" if source and source.lower() == "peachcars" else ""
-            price_filter_local = f"AND (price_kes / {usd_rate}) >= {price_min}" if price_min else ""
-            if price_max: price_filter_local += f" AND (price_kes / {usd_rate}) <= {price_max}"
+        if not source_lower or source_lower in LOCAL_SOURCES:
+            src_cond = (
+                f"AND source = '{source_lower}'"
+                if source_lower and source_lower in LOCAL_SOURCES
+                else ""
+            )
+
+            price_filter_local = (
+                f"AND (price_kes / {usd_rate}) >= {price_min}"
+                if price_min else ""
+            )
+            if price_max:
+                price_filter_local += f" AND (price_kes / {usd_rate}) <= {price_max}"
+
             query_parts.append(f"""
                 SELECT id, source, make, model, year, mileage_km, engine_cc, fuel_type, transmission, body_type,
-                       ROUND((price_kes / {usd_rate})::numeric, 0) as price_usd, price_kes, listing_url as url, status, scraped_at
+                       ROUND((price_kes / {usd_rate})::numeric, 0) as price_usd, price_kes, listing_url as url, status, scraped_at, images_json as images
                 FROM local_listings
                 WHERE {status_filter} {src_cond} {make_filter} {model_filter} {year_filter} {fuel_filter} {body_filter} {price_filter_local}
             """)
@@ -176,11 +206,27 @@ def get_models(make: str = Query(...), db: DBDep = None):
 
 
 # ── GET /api/listings/{id} ────────────────────────────────────────────────
-@router.get("/{listing_id}", response_model=ListingOut)
+@router.get("/{listing_id}")
 def get_listing(listing_id: int, db: DBDep):
     row = db.get(CarListing, listing_id)
     if not row:
         row = db.get(LocalListing, listing_id)
     if not row:
         raise HTTPException(status_code=404, detail="Listing not found")
-    return row
+
+    d = _serialize_row(row.__dict__ if hasattr(row, '__dict__') else row)
+    d.pop('_sa_instance_state', None)
+
+    usd_rate = settings.usd_kes_fallback
+    if d.get("price_usd") and not d.get("price_kes"):
+        d["price_kes"] = round(d["price_usd"] * usd_rate)
+    elif d.get("price_kes") and not d.get("price_usd"):
+        d["price_usd"] = round(d["price_kes"] / usd_rate)
+
+    if hasattr(row, 'listing_url') and not d.get('url'):
+        d['url'] = getattr(row, 'listing_url', None)
+
+    if hasattr(row, 'images_json') and not d.get('images'):
+        d['images'] = getattr(row, 'images_json', None)
+
+    return d
