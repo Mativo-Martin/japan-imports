@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import { useVehicleDropdowns } from '../hooks/useVehicleDropdowns';
 import { MLPrediction } from '../types';
 import { formatKES, formatUSD } from '../utils/formatters';
-import { Sparkles, TrendingDown, Sliders } from 'lucide-react';
+import { Sparkles, TrendingDown, Sliders, ShieldCheck, Cpu } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 export const Predictor: React.FC = () => {
@@ -22,14 +22,20 @@ export const Predictor: React.FC = () => {
   const [prediction, setPrediction] = useState<MLPrediction | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Load makes on mount
   const runPrediction = async () => {
     if (!make || !model) return;
     setLoading(true);
     try {
       const res = await apiClient.predictPrice({
-        make, model, year, mileage_km: mileage, engine_cc: engineCc,
-        fuel_type: fuelType, transmission, drive_type: driveType, condition_score: condition,
+        make,
+        model,
+        year,
+        mileage_km: mileage,
+        engine_cc: engineCc,
+        fuel_type: fuelType,
+        transmission,
+        drive_type: driveType,
+        condition_score: condition,
       });
       setPrediction(res);
       showToast('Valuation Computed', `Estimated Japan CIF: ${formatUSD(res?.predicted_price_usd || 0)}`, 'success');
@@ -41,36 +47,6 @@ export const Predictor: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    if (make && model) runPrediction();
-  }, [make, model]);
-
-  // const runPrediction = async () => {
-  //   if (!make || !model) return;
-  //   setLoading(true);
-  //   try {
-  //     const res = await apiClient.predictPrice({
-  //       make,
-  //       model,
-  //       year,
-  //       mileage_km: mileage,
-  //       engine_cc: engineCc,
-  //       fuel_type: fuelType,
-  //       transmission,
-  //       drive_type: driveType,
-  //       condition_score: condition,
-  //     });
-  //     setPrediction(res);
-  //     showToast('Valuation Computed', `Estimated Japan CIF: ${formatUSD(res?.predicted_price_usd || 0)}`, 'success');
-  //   } catch (err) {
-  //     console.error('Failed to predict price:', err);
-  //     showToast('Error', 'Unable to compute valuation', 'warning');
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  // Run initial prediction once make/model are populated
   useEffect(() => {
     if (make && model) {
       runPrediction();
@@ -90,30 +66,30 @@ export const Predictor: React.FC = () => {
     : 0;
   const activeRate = (prediction as any)?.usd_kes_rate ?? usdKesRate;
 
-  // Compute 3-year depreciation trajectory
+  // Compute 4-year depreciation trajectory
   const baseLanded = prediction ? predictedUsd * activeRate * 1.78 + 95000 : 0;
   const depreciationCurve = prediction
     ? [
-        { year: 'Current', value: Math.round(baseLanded) },
-        { year: 'Year 1', value: Math.round(baseLanded * 0.88) },
-        { year: 'Year 2', value: Math.round(baseLanded * 0.78) },
-        { year: 'Year 3', value: Math.round(baseLanded * 0.70) },
-        { year: 'Year 4', value: Math.round(baseLanded * 0.62) },
-      ]
+      { year: 'Current', value: Math.round(baseLanded) },
+      { year: 'Year 1', value: Math.round(baseLanded * 0.88) },
+      { year: 'Year 2', value: Math.round(baseLanded * 0.78) },
+      { year: 'Year 3', value: Math.round(baseLanded * 0.70) },
+      { year: 'Year 4', value: Math.round(baseLanded * 0.62) },
+    ]
     : [];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
       {/* Top Banner */}
       <div>
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-stone-200/70 border border-stone-300 text-stone-800 text-xs font-semibold mb-2">
-          <Sparkles className="w-3.5 h-3.5 text-[#9E2A2B]" />
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#000000]/10 border border-[#000000]/20 text-[#000000] text-xs font-semibold mb-2">
+          <Cpu className="w-3.5 h-3.5 text-[#000000]" />
           <span>Machine Learning Car Price & Residual Valuation Model</span>
         </div>
-        <h1 className="text-2xl sm:text-4xl font-extrabold text-stone-900 tracking-tight font-display">
+        <h1 className="text-2xl sm:text-4xl font-extrabold text-[#000000] tracking-tight font-display">
           AI Fair Value & Depreciation Predictor
         </h1>
-        <p className="text-xs sm:text-sm text-stone-500 mt-1">
+        <p className="text-xs sm:text-sm text-[#295135] mt-1">
           Trained on historical auction sales, mileage depreciation vectors, and Kenyan market resale values.
         </p>
       </div>
@@ -122,20 +98,20 @@ export const Predictor: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Input Parameters Form */}
         <div className="lg:col-span-5 space-y-6">
-          <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-2xs space-y-4">
-            <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2 font-display">
-              <Sliders className="w-4 h-4 text-[#9E2A2B]" />
+          <div className="p-6 rounded-2xl bg-white border border-[#000000]/15 shadow-2xs space-y-4">
+            <h3 className="text-sm font-bold text-[#000000] flex items-center gap-2 font-display">
+              <Sliders className="w-4 h-4 text-[#000000]" />
               <span>Target Vehicle Parameters</span>
             </h3>
 
             {/* Make & Model */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-stone-700">Vehicle Make</label>
+                <label className="text-xs font-semibold text-[#000000]">Vehicle Make</label>
                 <select
                   value={make}
                   onChange={(e) => setMake(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:border-stone-400"
+                  className="w-full bg-[#FFFFFF] border border-[#000000]/20 rounded-xl px-3 py-2 text-xs text-[#000000] focus:outline-none focus:border-[#000000]"
                 >
                   {makesList.map((m) => (
                     <option key={m.make} value={m.make}>{m.make}</option>
@@ -144,11 +120,11 @@ export const Predictor: React.FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-stone-700">Model Name</label>
+                <label className="text-xs font-semibold text-[#000000]">Model Name</label>
                 <select
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:border-stone-400"
+                  className="w-full bg-[#FFFFFF] border border-[#000000]/20 rounded-xl px-3 py-2 text-xs text-[#000000] focus:outline-none focus:border-[#000000]"
                 >
                   {modelsList.map((modelName) => (
                     <option key={modelName} value={modelName}>{modelName}</option>
@@ -160,14 +136,14 @@ export const Predictor: React.FC = () => {
             {/* Year & Mileage */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-stone-700 flex justify-between">
+                <label className="text-xs font-semibold text-[#000000] flex justify-between">
                   <span>Year of Reg</span>
-                  <span className="text-[10px] text-stone-500">{year}</span>
+                  <span className="text-[10px] text-[#295135]">{year}</span>
                 </label>
                 <select
                   value={year}
                   onChange={(e) => setYear(Number(e.target.value))}
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-900 font-mono-num focus:outline-none focus:border-stone-400"
+                  className="w-full bg-[#FFFFFF] border border-[#000000]/20 rounded-xl px-3 py-2 text-xs text-[#000000] font-mono-num focus:outline-none focus:border-[#000000]"
                 >
                   {[2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018].map((y) => (
                     <option key={y} value={y}>{y}</option>
@@ -176,16 +152,16 @@ export const Predictor: React.FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-stone-700 flex justify-between">
+                <label className="text-xs font-semibold text-[#000000] flex justify-between">
                   <span>Mileage (km)</span>
-                  <span className="font-mono-num text-stone-500">{mileage.toLocaleString()} km</span>
+                  <span className="font-mono-num text-[#295135]">{mileage.toLocaleString()} km</span>
                 </label>
                 <input
                   type="number"
                   step="5000"
                   value={mileage}
                   onChange={(e) => setMileage(Math.max(0, Number(e.target.value)))}
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-900 font-mono-num focus:outline-none focus:border-stone-400"
+                  className="w-full bg-[#FFFFFF] border border-[#000000]/20 rounded-xl px-3 py-2 text-xs text-[#000000] font-mono-num focus:outline-none focus:border-[#000000]"
                 />
               </div>
             </div>
@@ -193,25 +169,25 @@ export const Predictor: React.FC = () => {
             {/* Engine CC & Condition Score */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-stone-700">Engine CC</label>
+                <label className="text-xs font-semibold text-[#000000]">Engine CC</label>
                 <input
                   type="number"
                   step="100"
                   value={engineCc}
                   onChange={(e) => setEngineCc(Number(e.target.value))}
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-900 font-mono-num focus:outline-none focus:border-stone-400"
+                  className="w-full bg-[#FFFFFF] border border-[#000000]/20 rounded-xl px-3 py-2 text-xs text-[#000000] font-mono-num focus:outline-none focus:border-[#000000]"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-stone-700 flex justify-between">
+                <label className="text-xs font-semibold text-[#000000] flex justify-between">
                   <span>Auction Condition</span>
-                  <span className="font-bold text-[#9E2A2B]">{condition} / 5</span>
+                  <span className="font-bold text-[#000000]">{condition} / 5</span>
                 </label>
                 <select
                   value={condition}
                   onChange={(e) => setCondition(Number(e.target.value))}
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:border-stone-400"
+                  className="w-full bg-[#FFFFFF] border border-[#000000]/20 rounded-xl px-3 py-2 text-xs text-[#000000] focus:outline-none focus:border-[#000000]"
                 >
                   <option value={5.0}>5.0 - Pristine (Like New)</option>
                   <option value={4.5}>4.5 - Excellent Condition</option>
@@ -225,11 +201,11 @@ export const Predictor: React.FC = () => {
             {/* Fuel & Drivetrain */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-stone-700">Fuel</label>
+                <label className="text-xs font-semibold text-[#000000]">Fuel</label>
                 <select
                   value={fuelType}
                   onChange={(e) => setFuelType(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:border-stone-400"
+                  className="w-full bg-[#FFFFFF] border border-[#000000]/20 rounded-xl px-3 py-2 text-xs text-[#000000] focus:outline-none focus:border-[#000000]"
                 >
                   <option value="petrol">Petrol</option>
                   <option value="hybrid">Hybrid</option>
@@ -238,11 +214,11 @@ export const Predictor: React.FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-stone-700">Drivetrain</label>
+                <label className="text-xs font-semibold text-[#000000]">Drivetrain</label>
                 <select
                   value={driveType}
                   onChange={(e) => setDriveType(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:border-stone-400"
+                  className="w-full bg-[#FFFFFF] border border-[#000000]/20 rounded-xl px-3 py-2 text-xs text-[#000000] focus:outline-none focus:border-[#000000]"
                 >
                   <option value="2wd">2WD (FWD/RWD)</option>
                   <option value="4wd">4WD / AWD</option>
@@ -254,12 +230,12 @@ export const Predictor: React.FC = () => {
             <button
               onClick={runPrediction}
               disabled={loading}
-              className="w-full py-3 rounded-xl bg-[#9E2A2B] hover:bg-[#852324] text-white font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-2 mt-2 cursor-pointer"
+              className="w-full py-3 rounded-xl bg-[#000000] hover:bg-[#295135] text-white font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-2 mt-2 cursor-pointer"
             >
               {loading ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               ) : (
-                <Sparkles className="w-4 h-4" />
+                <Sparkles className="w-4 h-4 text-[#6BD425]" />
               )}
               <span>{loading ? 'Evaluating Model...' : 'Calculate Fair AI Valuation'}</span>
             </button>
@@ -271,40 +247,40 @@ export const Predictor: React.FC = () => {
           {prediction && (
             <>
               {/* Fair Value Hero Card */}
-              <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-2xs space-y-4">
-                <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div className="p-6 rounded-3xl bg-white border border-[#000000]/15 shadow-2xs space-y-4">
+                <div className="flex items-center justify-between border-b border-[#000000]/10 pb-3">
                   <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-800 text-xs font-bold border border-stone-200">
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#000000]/10 text-[#000000] text-xs font-bold border border-[#000000]/20">
                       Model {(prediction as any).model_version || 'LightGBM v1.4'}
                     </span>
-                    <span className="text-xs text-stone-500">Confidence: {(confidenceScore * 100).toFixed(0)}%</span>
+                    <span className="text-xs text-[#295135]">Confidence: {(confidenceScore * 100).toFixed(0)}%</span>
                   </div>
-                  <span className="text-xs text-stone-500 font-mono-num">
+                  <span className="text-xs text-[#295135] font-mono-num">
                     1 USD = {activeRate} KES
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
                   <div>
-                    <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider block">
+                    <span className="text-xs font-semibold text-[#295135] uppercase tracking-wider block">
                       Predicted Japan CIF Value
                     </span>
-                    <div className="text-3xl sm:text-4xl font-extrabold font-mono-num text-stone-900 mt-1">
+                    <div className="text-3xl sm:text-4xl font-extrabold font-mono-num text-[#000000] mt-1">
                       {formatUSD(predictedUsd)}
                     </div>
-                    <p className="text-xs text-stone-500 mt-1 font-mono-num">
+                    <p className="text-xs text-[#295135] mt-1 font-mono-num">
                       Range: {formatUSD(lowUsd)} – {formatUSD(highUsd)}
                     </p>
                   </div>
 
-                  <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-1">
-                    <span className="text-xs font-bold text-stone-600 uppercase tracking-wider block">
+                  <div className="p-4 rounded-2xl bg-[#000000] text-white space-y-1">
+                    <span className="text-xs font-bold text-white/80 uppercase tracking-wider block">
                       Estimated Landed in Kenya
                     </span>
-                    <div className="text-2xl sm:text-3xl font-black font-mono-num text-[#9E2A2B]">
+                    <div className="text-2xl sm:text-3xl font-black font-mono-num text-[#6BD425]">
                       {formatKES(predictedUsd * activeRate * 1.78 + 95000)}
                     </div>
-                    <p className="text-xs text-stone-500">
+                    <p className="text-[11px] text-white/70">
                       Includes 25% Duty, 20% Excise, 16% VAT, and CFS fees
                     </p>
                   </div>
@@ -312,13 +288,13 @@ export const Predictor: React.FC = () => {
               </div>
 
               {/* Depreciation Trajectory Curve */}
-              <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-2xs space-y-4">
+              <div className="p-6 rounded-2xl bg-white border border-[#000000]/15 shadow-2xs space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <TrendingDown className="w-5 h-5 text-[#9E2A2B]" />
-                    <h3 className="text-base font-bold text-stone-900 font-display">Projected Kenyan Resale Value Curve</h3>
+                    <TrendingDown className="w-5 h-5 text-[#000000]" />
+                    <h3 className="text-base font-bold text-[#000000] font-display">Projected Kenyan Resale Value Curve</h3>
                   </div>
-                  <span className="text-xs text-stone-500">4-Year Depreciation Horizon</span>
+                  <span className="text-xs text-[#295135]">4-Year Depreciation Horizon</span>
                 </div>
 
                 <div className="h-60 w-full">
@@ -326,33 +302,33 @@ export const Predictor: React.FC = () => {
                     <AreaChart data={depreciationCurve} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                       <defs>
                         <linearGradient id="deprecColor" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#9E2A2B" stopOpacity={0.2} />
-                          <stop offset="95%" stopColor="#9E2A2B" stopOpacity={0.0} />
+                          <stop offset="5%" stopColor="#000000" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="#000000" stopOpacity={0.0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e4" />
-                      <XAxis dataKey="year" stroke="#78716c" fontSize={11} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="year" stroke="#295135" fontSize={11} />
                       <YAxis
-                        stroke="#78716c"
+                        stroke="#295135"
                         fontSize={11}
                         tickFormatter={(val) => `${(val / 1000000).toFixed(1)}M`}
                       />
                       <Tooltip
                         formatter={(val: any) => formatKES(Number(val))}
                         contentStyle={{
-                          backgroundColor: '#ffffff',
-                          borderColor: '#e7e5e4',
+                          backgroundColor: '#000000',
+                          borderColor: '#295135',
                           borderRadius: '0.75rem',
-                          color: '#1c1917',
+                          color: '#ffffff',
                           fontSize: '12px',
-                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.2)',
                         }}
                       />
                       <Area
                         type="monotone"
                         dataKey="value"
-                        stroke="#9E2A2B"
-                        strokeWidth={2}
+                        stroke="#000000"
+                        strokeWidth={2.5}
                         fillOpacity={1}
                         fill="url(#deprecColor)"
                       />

@@ -2,31 +2,30 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { CarListing, FilterParams } from '../types';
-import { CarCard } from '../components/CarCard';
 import { useApp } from '../context/AppContext';
+import { CarCard } from '../components/CarCard';
 import { formatKES, formatUSD, formatKm, formatCC, getSourceBadgeInfo, parseListingImages } from '../utils/formatters';
 import {
   Search as SearchIcon,
   Filter,
-  SlidersHorizontal,
-  X,
-  RotateCcw,
+  ArrowUpDown,
   LayoutGrid,
   List,
-  ArrowUpDown,
+  RotateCcw,
+  SlidersHorizontal,
+  X,
   Car,
 } from 'lucide-react';
 
 export const Search: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { usdKesRate, openDutyModal } = useApp();
+  const { openDutyModal, usdKesRate } = useApp();
 
   const [listings, setListings] = useState<CarListing[]>([]);
   const [total, setTotal] = useState<number>(0);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
-  // Metadata for filter options
   const [makesList, setMakesList] = useState<{ make: string; count: number }[]>([]);
   const [modelsList, setModelsList] = useState<{ model: string; count: number }[]>([]);
 
@@ -43,7 +42,7 @@ export const Search: React.FC = () => {
   const priceMin = searchParams.get('price_min') || '';
   const priceMax = searchParams.get('price_max') || '';
   const sortBy = searchParams.get('sort_by') || 'price_usd';
-  const sortOrder = (searchParams.get('sort_order') as 'asc' | 'desc') || 'asc';
+  const sortOrder = (searchParams.get('sort_order') === 'desc' ? 'desc' : 'asc') as 'asc' | 'desc';
 
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
@@ -52,7 +51,7 @@ export const Search: React.FC = () => {
     apiClient.getMakes().then(setMakesList).catch(console.error);
   }, []);
 
-  // Update models list when make changes
+  // Fetch models whenever make changes
   useEffect(() => {
     apiClient.getModels(make || undefined).then(setModelsList).catch(console.error);
   }, [make]);
@@ -123,15 +122,15 @@ export const Search: React.FC = () => {
   }, [q, source, make, model, bodyType, driveType, fuelType, yearMin, yearMax, priceMin, priceMax]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-5">
       {/* Header bar: Search input + View switch + Mobile Filter button */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight font-display">
-            Japanese Inventory & Market Catalog
+          <h1 className="text-xl sm:text-2xl font-black text-[#000000] tracking-tight font-display">
+            Direct Import & Local Market Inventory
           </h1>
-          <p className="text-xs sm:text-sm text-stone-500">
-            Browse {total} verified vehicles from Japan exporters & Kenyan dealer showrooms
+          <p className="text-xs text-stone-500">
+            Browse {total} verified vehicles with landed duty calculations
           </p>
         </div>
 
@@ -139,15 +138,15 @@ export const Search: React.FC = () => {
         <div className="flex items-center gap-2 self-start md:self-auto">
           <button
             onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
-            className="lg:hidden flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-stone-200 text-xs font-semibold text-stone-800 shadow-2xs"
+            className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#000000]/15 text-xs font-bold text-[#000000] shadow-2xs"
           >
-            <Filter className="w-3.5 h-3.5 text-[#0E402D]" />
+            <Filter className="w-3.5 h-3.5 text-[#000000]" />
             <span>Filters ({activeFiltersCount})</span>
           </button>
 
           {/* Sort Selector */}
-          <div className="flex items-center gap-1.5 bg-white border border-stone-200 rounded-xl px-3 py-1.5 text-xs text-stone-700 shadow-2xs">
-            <ArrowUpDown className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+          <div className="flex items-center gap-1.5 bg-white border border-[#000000]/15 rounded-xl px-2.5 py-1.5 text-xs text-stone-700 shadow-2xs">
+            <ArrowUpDown className="w-3.5 h-3.5 text-[#295135] shrink-0" />
             <select
               value={`${sortBy}:${sortOrder}`}
               onChange={(e) => {
@@ -156,21 +155,21 @@ export const Search: React.FC = () => {
                 updateParam('sort_order', so);
               }}
               aria-label="Sort listings"
-              className="bg-transparent text-stone-800 text-xs focus:outline-none cursor-pointer pr-2"
+              className="bg-transparent text-[#000000] font-semibold text-xs focus:outline-none cursor-pointer pr-1"
             >
-              <option value="id:asc">Default (ID)</option>
               <option value="price_usd:asc">Lowest CIF Price (USD)</option>
               <option value="price_usd:desc">Highest CIF Price (USD)</option>
               <option value="year:desc">Newest Year (2021+)</option>
               <option value="mileage_km:asc">Lowest Mileage</option>
+              <option value="id:asc">Default</option>
             </select>
           </div>
 
           {/* Grid / Table Toggle */}
-          <div className="hidden sm:flex items-center bg-white border border-stone-200 rounded-xl p-0.5 shadow-2xs">
+          <div className="hidden sm:flex items-center bg-white border border-[#000000]/15 rounded-xl p-0.5 shadow-2xs">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-stone-900 text-white' : 'text-stone-500 hover:text-stone-900'
+              className={`p-1.5 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-[#000000] text-[#6BD425]' : 'text-stone-500 hover:text-black'
                 }`}
               title="Grid View"
             >
@@ -178,7 +177,7 @@ export const Search: React.FC = () => {
             </button>
             <button
               onClick={() => setViewMode('table')}
-              className={`p-1.5 rounded-lg transition-colors ${viewMode === 'table' ? 'bg-stone-900 text-white' : 'text-stone-500 hover:text-stone-900'
+              className={`p-1.5 rounded-lg transition-colors ${viewMode === 'table' ? 'bg-[#000000] text-[#6BD425]' : 'text-stone-500 hover:text-black'
                 }`}
               title="Table View"
             >
@@ -189,21 +188,23 @@ export const Search: React.FC = () => {
       </div>
 
       {/* Main Grid: Filters Sidebar + Listings Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Sidebar Filters */}
         <aside
-          className={`lg:col-span-3 space-y-6 ${mobileFilterOpen ? 'block' : 'hidden lg:block'
-            } p-5 rounded-2xl bg-white border border-stone-200 shadow-2xs h-fit`}
+          className={`lg:col-span-3 space-y-4 ${mobileFilterOpen ? 'block' : 'hidden lg:block'
+            } p-4 rounded-2xl bg-white border border-[#000000]/10 shadow-2xs h-fit`}
         >
-          <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+          <div className="flex items-center justify-between border-b border-stone-100 pb-2.5">
             <div className="flex items-center gap-2">
-              <SlidersHorizontal className="w-4 h-4 text-[#0E402D]" />
-              <span className="font-bold text-stone-900 text-sm font-display">Filter Criteria</span>
+              <SlidersHorizontal className="w-4 h-4 text-[#000000]" />
+              <span className="font-bold text-[#000000] text-xs uppercase tracking-wider font-display">
+                Filters
+              </span>
             </div>
             {activeFiltersCount > 0 && (
               <button
                 onClick={clearAllFilters}
-                className="text-xs text-[#0E402D] hover:text-[#295135] flex items-center gap-1 font-semibold transition-colors"
+                className="text-xs text-[#000000] hover:text-[#295135] flex items-center gap-1 font-bold transition-colors"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>Reset</span>
@@ -212,21 +213,21 @@ export const Search: React.FC = () => {
           </div>
 
           {/* Keyword Search */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-stone-700">Keyword Search</label>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-[#000000]">Search Keyword</label>
             <div className="relative">
-              <SearchIcon className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <SearchIcon className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Harrier, Hybrid, White, AWD..."
+                placeholder="Model, fuel, color..."
                 value={q}
                 onChange={(e) => updateParam('q', e.target.value)}
-                className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-9 pr-8 py-2 text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-stone-400"
+                className="w-full bg-[#FFFFFF] border border-[#000000]/10 rounded-xl pl-8 pr-7 py-1.5 text-xs text-[#000000] placeholder:text-stone-400 focus:outline-none focus:border-[#000000]"
               />
               {q && (
                 <button
                   onClick={() => updateParam('q', '')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-black"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -235,21 +236,21 @@ export const Search: React.FC = () => {
           </div>
 
           {/* Source Inventory Filter */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-stone-700">Listing Source</label>
-            <div className="grid grid-cols-2 gap-1.5 text-xs">
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-[#000000]">Inventory Source</label>
+            <div className="grid grid-cols-2 gap-1 text-xs">
               {[
                 { id: '', label: 'All Sources' },
-                { id: 'beforward', label: 'BeForward' },
+                { id: 'beforward', label: 'BE FORWARD' },
                 { id: 'sbt', label: 'SBT Japan' },
-                { id: 'peachcars', label: 'PeachCars (KE)' },
+                { id: 'peachcars', label: 'PeachCars KE' },
               ].map((s) => (
                 <button
                   key={s.id}
                   onClick={() => updateParam('source', s.id)}
-                  className={`py-1.5 px-2 rounded-lg text-left truncate transition-all text-[11px] font-medium ${source === s.id
-                      ? 'bg-stone-900 text-white shadow-2xs'
-                      : 'bg-stone-50 text-stone-600 border border-stone-200/70 hover:bg-stone-100'
+                  className={`py-1.5 px-2 rounded-lg text-left truncate transition-all text-[11px] font-bold ${source === s.id
+                    ? 'bg-[#000000] text-white shadow-xs'
+                    : 'bg-[#FFFFFF] text-stone-700 border border-[#000000]/8 hover:bg-stone-200'
                     }`}
                 >
                   {s.label}
@@ -259,8 +260,8 @@ export const Search: React.FC = () => {
           </div>
 
           {/* Make Dropdown */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-stone-700">Vehicle Make</label>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-[#000000]">Vehicle Make</label>
             <select
               value={make}
               onChange={(e) => {
@@ -268,9 +269,9 @@ export const Search: React.FC = () => {
                 updateParam('model', '');
               }}
               aria-label="Filter by vehicle make"
-              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-800 focus:outline-none focus:border-stone-400 cursor-pointer"
+              className="w-full bg-[#FFFFFF] border border-[#000000]/10 rounded-xl px-2.5 py-1.5 text-xs text-[#000000] font-semibold focus:outline-none focus:border-[#000000] cursor-pointer"
             >
-              <option value="">All Makes (Toyota, Mazda, Subaru...)</option>
+              <option value="">All Makes (Toyota, Nissan, Mazda...)</option>
               {makesList.map((m) => (
                 <option key={m.make} value={m.make}>
                   {m.make} ({m.count})
@@ -281,13 +282,13 @@ export const Search: React.FC = () => {
 
           {/* Model Dropdown */}
           {modelsList.length > 0 && (
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-stone-700">Vehicle Model</label>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-[#000000]">Vehicle Model</label>
               <select
                 value={model}
                 onChange={(e) => updateParam('model', e.target.value)}
                 aria-label="Filter by vehicle model"
-                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-800 focus:outline-none focus:border-stone-400 cursor-pointer"
+                className="w-full bg-[#FFFFFF] border border-[#000000]/10 rounded-xl px-2.5 py-1.5 text-xs text-[#000000] font-semibold focus:outline-none focus:border-[#000000] cursor-pointer"
               >
                 <option value="">All Models</option>
                 {modelsList.map((m) => (
@@ -300,23 +301,23 @@ export const Search: React.FC = () => {
           )}
 
           {/* Body Type */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-stone-700">Body Type</label>
-            <div className="grid grid-cols-2 gap-1.5 text-xs">
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-[#000000]">Body Type</label>
+            <div className="grid grid-cols-3 gap-1 text-xs">
               {[
                 { id: '', label: 'All' },
                 { id: 'suv', label: 'SUV' },
                 { id: 'sedan', label: 'Sedan' },
-                { id: 'hatchback', label: 'Hatchback' },
+                { id: 'hatchback', label: 'Hatch' },
+                { id: 'van', label: 'Van' },
                 { id: 'wagon', label: 'Wagon' },
-                { id: 'minivan', label: 'Minivan' },
               ].map((bt) => (
                 <button
                   key={bt.id}
                   onClick={() => updateParam('body_type', bt.id)}
-                  className={`py-1.5 px-2 rounded-lg text-center capitalize transition-all text-[11px] font-medium ${bodyType === bt.id
-                      ? 'bg-stone-900 text-white'
-                      : 'bg-stone-50 text-stone-600 border border-stone-200/70 hover:bg-stone-100'
+                  className={`py-1.5 px-1 rounded-lg text-center capitalize transition-all text-[11px] font-bold ${bodyType === bt.id
+                    ? 'bg-[#000000] text-white'
+                    : 'bg-[#FFFFFF] text-stone-700 border border-[#000000]/8 hover:bg-stone-200'
                     }`}
                 >
                   {bt.label}
@@ -325,58 +326,43 @@ export const Search: React.FC = () => {
             </div>
           </div>
 
-          {/* Year Range (KRA 8-year age rule: 2018–2026) */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-stone-700 flex justify-between">
-              <span>Year of Registration</span>
-              <span className="text-[10px] text-[#0E402D] font-semibold">KRA 8-Yr Limit</span>
+          {/* Year Range */}
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-[#000000] flex justify-between">
+              <span>Registration Year</span>
+              <span className="text-[10px] text-[#000000] font-bold">KRA 8-Yr Rule</span>
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-1.5">
               <input
                 type="number"
-                placeholder="Min (e.g. 2019)"
+                placeholder="Min 2018"
                 min="2018"
                 max="2026"
                 value={yearMin}
                 onChange={(e) => updateParam('year_min', e.target.value)}
-                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-1.5 text-xs text-stone-900 focus:outline-none focus:border-stone-400 font-mono-num"
+                className="w-full bg-[#FFFFFF] border border-[#000000]/10 rounded-xl px-2.5 py-1.5 text-xs text-[#000000] focus:outline-none focus:border-[#000000] font-mono-num font-semibold"
               />
               <input
                 type="number"
-                placeholder="Max (e.g. 2024)"
+                placeholder="Max 2026"
                 min="2018"
                 max="2026"
                 value={yearMax}
                 onChange={(e) => updateParam('year_max', e.target.value)}
-                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-1.5 text-xs text-stone-900 focus:outline-none focus:border-stone-400 font-mono-num"
+                className="w-full bg-[#FFFFFF] border border-[#000000]/10 rounded-xl px-2.5 py-1.5 text-xs text-[#000000] focus:outline-none focus:border-[#000000] font-mono-num font-semibold"
               />
             </div>
           </div>
 
-          {/* Drive & Fuel Type */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-stone-700">Drivetrain</label>
-              <select
-                value={driveType}
-                onChange={(e) => updateParam('drive_type', e.target.value)}
-                aria-label="Filter by drivetrain"
-                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-2.5 py-1.5 text-xs text-stone-800 focus:outline-none focus:border-stone-400 cursor-pointer"
-              >
-                <option value="">All</option>
-                <option value="2wd">2WD</option>
-                <option value="4wd">4WD</option>
-                <option value="awd">AWD</option>
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-stone-700">Fuel Type</label>
+          {/* Fuel & Drivetrain */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-[#000000]">Fuel</label>
               <select
                 value={fuelType}
                 onChange={(e) => updateParam('fuel_type', e.target.value)}
                 aria-label="Filter by fuel type"
-                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-2.5 py-1.5 text-xs text-stone-800 focus:outline-none focus:border-stone-400 cursor-pointer"
+                className="w-full bg-[#FFFFFF] border border-[#000000]/10 rounded-xl px-2 py-1.5 text-xs text-[#000000] font-semibold focus:outline-none focus:border-[#000000] cursor-pointer"
               >
                 <option value="">All</option>
                 <option value="petrol">Petrol</option>
@@ -384,50 +370,65 @@ export const Search: React.FC = () => {
                 <option value="diesel">Diesel</option>
               </select>
             </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-[#000000]">Drivetrain</label>
+              <select
+                value={driveType}
+                onChange={(e) => updateParam('drive_type', e.target.value)}
+                aria-label="Filter by drivetrain"
+                className="w-full bg-[#FFFFFF] border border-[#000000]/10 rounded-xl px-2 py-1.5 text-xs text-[#000000] font-semibold focus:outline-none focus:border-[#000000] cursor-pointer"
+              >
+                <option value="">All</option>
+                <option value="2wd">2WD</option>
+                <option value="4wd">4WD</option>
+                <option value="awd">AWD</option>
+              </select>
+            </div>
           </div>
         </aside>
 
         {/* Listings Display Area */}
-        <main className="lg:col-span-9 space-y-6">
+        <main className="lg:col-span-9 space-y-4">
           {/* Active Filter Chips */}
           {activeFiltersCount > 0 && (
-            <div className="flex items-center gap-2 flex-wrap text-xs">
-              <span className="text-stone-400 text-[11px]">Active Filters:</span>
+            <div className="flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="text-stone-500 text-[11px] font-bold">Active:</span>
               {q && (
-                <span className="px-2.5 py-1 rounded-full bg-stone-100 text-stone-800 border border-stone-200 flex items-center gap-1.5">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#000000] text-[#6BD425] text-xs font-semibold flex items-center gap-1">
                   <span>Search: {q}</span>
-                  <button onClick={() => updateParam('q', '')} className="hover:text-[#0E402D]">
+                  <button onClick={() => updateParam('q', '')} className="hover:text-white">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
               )}
               {source && (
-                <span className="px-2.5 py-1 rounded-full bg-stone-100 text-stone-800 border border-stone-200 flex items-center gap-1.5">
-                  <span>Source: {source}</span>
-                  <button onClick={() => updateParam('source', '')} className="hover:text-[#0E402D]">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#000000] text-[#6BD425] text-xs font-semibold flex items-center gap-1 uppercase">
+                  <span>{source}</span>
+                  <button onClick={() => updateParam('source', '')} className="hover:text-white">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
               )}
               {make && (
-                <span className="px-2.5 py-1 rounded-full bg-stone-100 text-stone-800 border border-stone-200 flex items-center gap-1.5">
-                  <span>Make: {make}</span>
-                  <button onClick={() => updateParam('make', '')} className="hover:text-[#0E402D]">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#000000] text-[#6BD425] text-xs font-semibold flex items-center gap-1">
+                  <span>{make}</span>
+                  <button onClick={() => updateParam('make', '')} className="hover:text-white">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
               )}
               {bodyType && (
-                <span className="px-2.5 py-1 rounded-full bg-stone-100 text-stone-800 border border-stone-200 flex items-center gap-1.5 uppercase">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#000000] text-[#6BD425] text-xs font-semibold flex items-center gap-1 uppercase">
                   <span>{bodyType}</span>
-                  <button onClick={() => updateParam('body_type', '')} className="hover:text-[#0E402D]">
+                  <button onClick={() => updateParam('body_type', '')} className="hover:text-white">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
               )}
               <button
                 onClick={clearAllFilters}
-                className="text-xs text-stone-500 hover:text-stone-900 underline underline-offset-4 ml-1"
+                className="text-xs text-[#000000] hover:underline ml-1 font-bold"
               >
                 Clear all
               </button>
@@ -435,46 +436,46 @@ export const Search: React.FC = () => {
           )}
 
           {loading ? (
-            <div className="py-24 flex flex-col items-center justify-center text-stone-500 space-y-3">
-              <div className="w-8 h-8 border-2 border-stone-900 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-sm">Retrieving vehicles and calculating landed taxes...</p>
+            <div className="py-20 flex flex-col items-center justify-center text-stone-500 space-y-2">
+              <div className="w-7 h-7 border-2 border-[#000000] border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-xs font-bold text-stone-700">Loading verified inventory...</p>
             </div>
           ) : listings.length === 0 ? (
-            <div className="p-12 text-center rounded-2xl bg-white border border-stone-200 space-y-4 shadow-2xs">
-              <div className="w-12 h-12 rounded-full bg-stone-100 mx-auto flex items-center justify-center text-stone-400">
-                <Car className="w-6 h-6" />
+            <div className="p-10 text-center rounded-2xl bg-white border border-[#000000]/10 space-y-3 shadow-2xs">
+              <div className="w-10 h-10 rounded-full bg-[#FFFFFF] mx-auto flex items-center justify-center text-[#000000]">
+                <Car className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-stone-800 font-display">No matching vehicles found</h3>
-                <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto">
-                  Try adjusting your search criteria or resetting filters to view all available Japan and Kenyan stock.
+                <h3 className="text-sm font-bold text-[#000000] font-display">No matching vehicles found</h3>
+                <p className="text-xs text-stone-500 mt-0.5 max-w-sm mx-auto">
+                  Adjust your filters or reset to see all available inventory from Japan & Kenya.
                 </p>
               </div>
               <button
                 onClick={clearAllFilters}
-                className="px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl transition-all shadow-2xs"
+                className="px-4 py-1.5 bg-[#000000] hover:bg-[#295135] text-white text-xs font-bold rounded-xl transition-all shadow-2xs"
               >
                 Reset Filters
               </button>
             </div>
           ) : viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
               {listings.map((car) => (
                 <CarCard key={car.id} car={car} />
               ))}
             </div>
           ) : (
             /* Table / Matrix View */
-            <div className="rounded-2xl bg-white border border-stone-200 overflow-hidden shadow-2xs overflow-x-auto">
+            <div className="rounded-2xl bg-white border border-[#000000]/10 overflow-hidden shadow-2xs overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-stone-50 border-b border-stone-200 text-stone-600 font-semibold uppercase tracking-wider text-[10px]">
+                <thead className="bg-[#000000] text-white font-bold uppercase tracking-wider text-[10px]">
                   <tr>
-                    <th className="py-3 px-4">Vehicle</th>
-                    <th className="py-3 px-3">Specs</th>
-                    <th className="py-3 px-3">Source</th>
-                    <th className="py-3 px-3">CIF (USD)</th>
-                    <th className="py-3 px-3">Landed (KES)</th>
-                    <th className="py-3 px-4 text-right">Actions</th>
+                    <th className="py-2.5 px-4">Vehicle</th>
+                    <th className="py-2.5 px-3">Specs</th>
+                    <th className="py-2.5 px-3">Source</th>
+                    <th className="py-2.5 px-3">CIF (USD)</th>
+                    <th className="py-2.5 px-3">Landed (KES)</th>
+                    <th className="py-2.5 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100 text-stone-800">
@@ -487,42 +488,42 @@ export const Search: React.FC = () => {
                       : car.price_kes || 0;
 
                     return (
-                      <tr key={car.id} className="hover:bg-stone-50/80 transition-colors">
-                        <td className="py-3.5 px-4 font-medium">
-                          <div className="flex items-center gap-3">
+                      <tr key={car.id} className="hover:bg-[#FFFFFF]/70 transition-colors">
+                        <td className="py-3 px-4 font-medium">
+                          <div className="flex items-center gap-2.5">
                             <img
                               src={parseListingImages(car.images)[0]}
                               alt={car.model}
-                              className="w-12 h-9 rounded-lg object-cover bg-stone-100 shrink-0 border border-stone-200"
+                              className="w-11 h-8 rounded-lg object-cover bg-stone-100 shrink-0 border border-stone-200"
                               referrerPolicy="no-referrer"
                             />
                             <div>
-                              <span className="font-bold text-stone-900 block font-display">
+                              <span className="font-bold text-[#000000] block font-display">
                                 {car.year} {car.make} {car.model}
                               </span>
-                              <span className="text-[11px] text-stone-500">{car.body_type?.toUpperCase()}</span>
+                              <span className="text-[10px] text-[#295135] font-semibold">{car.body_type?.toUpperCase()}</span>
                             </div>
                           </div>
                         </td>
-                        <td className="py-3.5 px-3 font-mono-num text-stone-700">
-                          <div>{formatKm(car.mileage_km)}</div>
+                        <td className="py-3 px-3 font-mono-num text-stone-700">
+                          <div className="font-semibold">{formatKm(car.mileage_km)}</div>
                           <div className="text-stone-400 text-[10px]">{formatCC(car.engine_cc)} • {car.fuel_type}</div>
                         </td>
-                        <td className="py-3.5 px-3">
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${badge.bg}`}>
+                        <td className="py-3 px-3">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badge.bg}`}>
                             {badge.shortLabel}
                           </span>
                         </td>
-                        <td className="py-3.5 px-3 font-mono-num font-semibold text-stone-700">
+                        <td className="py-3 px-3 font-mono-num font-bold text-stone-800">
                           {formatUSD(car.price_usd)}
                         </td>
-                        <td className="py-3.5 px-3 font-mono-num font-bold text-stone-900">
+                        <td className="py-3 px-3 font-mono-num font-black text-[#000000]">
                           {formatKES(estimatedLanded)}
                         </td>
-                        <td className="py-3.5 px-4 text-right">
+                        <td className="py-3 px-4 text-right">
                           <button
                             onClick={() => openDutyModal(car)}
-                            className="px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-800 font-semibold text-[11px] transition-colors border border-stone-200"
+                            className="px-2.5 py-1 rounded-lg bg-[#FFFFFF] hover:bg-[#000000] hover:text-white text-stone-800 font-bold text-[11px] transition-colors border border-[#000000]/10"
                           >
                             Duty Slip
                           </button>

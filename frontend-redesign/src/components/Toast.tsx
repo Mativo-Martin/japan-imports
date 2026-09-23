@@ -16,16 +16,15 @@ export const ToastContainer: React.FC = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, x: 50, scale: 0.9 }}
             transition={{ duration: 0.2 }}
-            className={`pointer-events-auto flex items-start gap-3 p-4 rounded-2xl shadow-xl backdrop-blur-xl border ${
-              toast.type === 'success'
+            className={`pointer-events-auto flex items-start gap-3 p-4 rounded-2xl shadow-xl backdrop-blur-xl border ${toast.type === 'success'
                 ? 'bg-white/95 border-stone-200 text-stone-900 shadow-stone-300/40'
                 : toast.type === 'warning'
-                ? 'bg-white/95 border-amber-300 text-stone-900 shadow-amber-200/40'
-                : 'bg-white/95 border-stone-200 text-stone-900 shadow-stone-300/40'
-            }`}
+                  ? 'bg-white/95 border-amber-300 text-stone-900 shadow-amber-200/40'
+                  : 'bg-white/95 border-stone-200 text-stone-900 shadow-stone-300/40'
+              }`}
           >
             <div className="mt-0.5 shrink-0">
-              {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 text-[#0E402D]" />}
+              {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 text-[#000000]" />}
               {toast.type === 'warning' && <AlertCircle className="w-5 h-5 text-amber-600" />}
               {toast.type === 'info' && <Info className="w-5 h-5 text-stone-700" />}
             </div>

@@ -42,12 +42,19 @@ export const ListingDetail: React.FC = () => {
         const carData = await apiClient.getListingById(parseInt(id, 10));
         setCar(carData);
 
-        const purchaseUsd = carData.price_usd || (carData.price_kes ? carData.price_kes / usdKesRate : 5000);
-        const [dutyData, compData, relatedData] = await Promise.all([
-          apiClient.calculateImportCost({
+        const isImportListing = carData.source !== 'peachcars';
+
+        // Only compute duty breakdown for import listings
+        let dutyData: ImportCostBreakdown | null = null;
+        if (isImportListing) {
+          const purchaseUsd = carData.price_usd || (carData.price_kes ? carData.price_kes / usdKesRate : 5000);
+          dutyData = await apiClient.calculateImportCost({
             purchase_usd: purchaseUsd,
             body_type: carData.body_type,
-          }),
+          });
+        }
+
+        const [compData, relatedData] = await Promise.all([
           apiClient.compareVehicles(carData.make, carData.model, carData.year).catch(() => null),
           apiClient.getListings({ make: carData.make, page_size: 4 }).catch(() => ({ data: [] })),
         ]);
@@ -67,8 +74,8 @@ export const ListingDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-24 flex flex-col items-center justify-center text-stone-500 space-y-3">
-        <div className="w-8 h-8 border-2 border-stone-900 border-t-transparent rounded-full animate-spin"></div>
+      <div className="max-w-7xl mx-auto px-4 py-24 flex flex-col items-center justify-center text-[#295135] space-y-3">
+        <div className="w-8 h-8 border-2 border-[#000000] border-t-transparent rounded-full animate-spin"></div>
         <p className="text-sm font-medium">Loading vehicle profile and computing KRA tax schedule...</p>
       </div>
     );
@@ -77,13 +84,13 @@ export const ListingDetail: React.FC = () => {
   if (!car) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-24 text-center space-y-4">
-        <h2 className="text-xl font-bold text-stone-900 font-display">Vehicle Not Found</h2>
-        <p className="text-sm text-stone-500 max-w-sm mx-auto">
+        <h2 className="text-xl font-bold text-[#000000] font-display">Vehicle Not Found</h2>
+        <p className="text-sm text-[#295135] max-w-sm mx-auto">
           The listing you are searching for might have been sold, removed, or is temporarily unavailable.
         </p>
         <button
           onClick={() => navigate('/marketplace')}
-          className="inline-flex px-5 py-2.5 bg-stone-900 hover:bg-stone-800 text-white font-bold rounded-xl text-xs transition-colors shadow-2xs cursor-pointer"
+          className="inline-flex px-5 py-2.5 bg-[#000000] hover:bg-[#295135] text-white font-bold rounded-xl text-xs transition-colors shadow-2xs cursor-pointer"
         >
           Back to Marketplace
         </button>
@@ -95,10 +102,11 @@ export const ListingDetail: React.FC = () => {
   const isSaved = isCarSaved(car.id);
   const comparing = isComparing(car.id);
   const images = parseListingImages(car.images);
+  const isImport = car.source !== 'peachcars';
 
   const handleCopyQuote = () => {
-    if (!breakdown) return;
-    const text = `
+    if (isImport && breakdown) {
+      const text = `
 KENYA VEHICLE IMPORT QUOTE (JapanEazy):
 Vehicle: ${car.year} ${car.make} ${car.model} (${car.body_type?.toUpperCase()})
 Japan Auction/CIF: ${formatUSD(breakdown.purchase_usd)} (${formatKES(breakdown.purchase_usd * breakdown.usd_kes_rate)})
@@ -106,8 +114,16 @@ Total KRA Taxes: ${formatKES(breakdown.tax_total_kes)}
 Port & CFS Fees: ${formatKES(breakdown.charges_total_kes)}
 Estimated Landed Nairobi: ${formatKES(breakdown.total_import_kes)}
 Exchange Rate: 1 USD = ${breakdown.usd_kes_rate} KES
-    `.trim();
-    navigator.clipboard.writeText(text);
+      `.trim();
+      navigator.clipboard.writeText(text);
+    } else {
+      const text = `
+KENYAN MARKET LISTING (JapanEazy):
+Vehicle: ${car.year} ${car.make} ${car.model} (${car.body_type?.toUpperCase()})
+Showroom Price: ${formatKES(car.price_kes || 0)}
+      `.trim();
+      navigator.clipboard.writeText(text);
+    }
     setCopied(true);
     showToast('Quote Copied', 'Vehicle quote copied to clipboard', 'success');
     setTimeout(() => setCopied(false), 2500);
@@ -119,7 +135,7 @@ Exchange Rate: 1 USD = ${breakdown.usd_kes_rate} KES
       <div className="flex items-center justify-between gap-4">
         <button
           onClick={() => navigate('/marketplace')}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-stone-900 transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#295135] hover:text-[#000000] transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Marketplace</span>
@@ -128,11 +144,10 @@ Exchange Rate: 1 USD = ${breakdown.usd_kes_rate} KES
         <div className="flex items-center gap-2">
           <button
             onClick={() => addToCompare(car)}
-            className={`px-3.5 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs ${
-              comparing
-                ? 'bg-stone-900 text-white border-stone-900'
-                : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
-            }`}
+            className={`px-3.5 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer ${comparing
+              ? 'bg-[#000000] text-[#6BD425] border-[#000000]'
+              : 'bg-white text-[#000000] border-[#000000]/20 hover:bg-[#FFFFFF]'
+              }`}
           >
             <GitCompare className="w-3.5 h-3.5" />
             <span>{comparing ? 'In Compare Dock' : 'Add to Compare'}</span>
@@ -140,11 +155,10 @@ Exchange Rate: 1 USD = ${breakdown.usd_kes_rate} KES
 
           <button
             onClick={() => toggleSaveCar(car)}
-            className={`px-3.5 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs ${
-              isSaved
-                ? 'bg-[#0E402D] text-[#9FCC2E] border-[#0E402D]'
-                : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
-            }`}
+            className={`px-3.5 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer ${isSaved
+              ? 'bg-[#000000] text-[#6BD425] border-[#000000]'
+              : 'bg-white text-[#000000] border-[#000000]/20 hover:bg-[#FFFFFF]'
+              }`}
           >
             <Heart className={`w-3.5 h-3.5 ${isSaved ? 'fill-current' : ''}`} />
             <span>{isSaved ? 'Saved' : 'Save'}</span>
@@ -157,7 +171,7 @@ Exchange Rate: 1 USD = ${breakdown.usd_kes_rate} KES
         {/* Left Column: Image Gallery & Specs */}
         <div className="lg:col-span-7 space-y-6">
           {/* Main Stage Image */}
-          <div className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-stone-100 border border-stone-200 shadow-sm">
+          <div className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-stone-100 border border-[#000000]/15 shadow-sm">
             <img
               src={images[activeImageIdx] || images[0] || CAR_PLACEHOLDER_SVG}
               alt={`${car.year} ${car.make} ${car.model}`}
@@ -187,9 +201,9 @@ Exchange Rate: 1 USD = ${breakdown.usd_kes_rate} KES
                 </span>
               )}
               {car.auction_grade && (
-                <span className="text-xs font-bold px-3 py-1 rounded-full bg-white/95 text-stone-800 border border-stone-200 shadow-xs backdrop-blur-sm flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5 text-[#0E402D]" />
-                  Japan Auction Grade {car.auction_grade}
+                <span className="text-xs font-bold px-3 py-1 rounded-full bg-white/95 text-[#000000] border border-[#000000]/20 shadow-xs backdrop-blur-sm flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-[#000000]" />
+                  Grade {car.auction_grade}
                 </span>
               )}
             </div>
@@ -202,11 +216,10 @@ Exchange Rate: 1 USD = ${breakdown.usd_kes_rate} KES
                 <button
                   key={index}
                   onClick={() => setActiveImageIdx(index)}
-                  className={`relative w-20 h-14 rounded-xl overflow-hidden border-2 shrink-0 transition-all cursor-pointer ${
-                    activeImageIdx === index
-                      ? 'border-[#0E402D] scale-105 shadow-2xs'
-                      : 'border-stone-200 opacity-70 hover:opacity-100'
-                  }`}
+                  className={`relative w-20 h-14 rounded-xl overflow-hidden border-2 shrink-0 transition-all cursor-pointer ${activeImageIdx === index
+                    ? 'border-[#000000] scale-105 shadow-2xs'
+                    : 'border-[#000000]/20 opacity-70 hover:opacity-100'
+                    }`}
                 >
                   <img
                     src={img}
@@ -223,50 +236,50 @@ Exchange Rate: 1 USD = ${breakdown.usd_kes_rate} KES
           )}
 
           {/* Technical Specs Card */}
-          <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-2xs space-y-4">
-            <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2 font-display">
-              <FileText className="w-4 h-4 text-[#0E402D]" />
+          <div className="p-6 rounded-2xl bg-white border border-[#000000]/15 shadow-2xs space-y-4">
+            <h3 className="text-sm font-bold text-[#000000] flex items-center gap-2 font-display">
+              <FileText className="w-4 h-4 text-[#000000]" />
               Verified Vehicle Specifications
             </h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-              <div className="p-3 rounded-xl bg-stone-50 border border-stone-100 space-y-0.5">
-                <span className="text-stone-500 block text-[10px]">Year / Manufacture</span>
-                <span className="font-bold text-stone-900 font-mono-num">{car.year} (KRA Eligible)</span>
+              <div className="p-3 rounded-xl bg-[#FFFFFF] border border-[#000000]/10 space-y-0.5">
+                <span className="text-[#295135] block text-[10px]">Year / Manufacture</span>
+                <span className="font-bold text-[#000000] font-mono-num">{car.year} (KRA Eligible)</span>
               </div>
-              <div className="p-3 rounded-xl bg-stone-50 border border-stone-100 space-y-0.5">
-                <span className="text-stone-500 block text-[10px]">Odometer Mileage</span>
-                <span className="font-bold text-stone-900 font-mono-num">{formatKm(car.mileage_km)}</span>
+              <div className="p-3 rounded-xl bg-[#FFFFFF] border border-[#000000]/10 space-y-0.5">
+                <span className="text-[#295135] block text-[10px]">Odometer Mileage</span>
+                <span className="font-bold text-[#000000] font-mono-num">{formatKm(car.mileage_km)}</span>
               </div>
-              <div className="p-3 rounded-xl bg-stone-50 border border-stone-100 space-y-0.5">
-                <span className="text-stone-500 block text-[10px]">Engine Displacement</span>
-                <span className="font-bold text-stone-900 font-mono-num">{formatCC(car.engine_cc)}</span>
+              <div className="p-3 rounded-xl bg-[#FFFFFF] border border-[#000000]/10 space-y-0.5">
+                <span className="text-[#295135] block text-[10px]">Engine Displacement</span>
+                <span className="font-bold text-[#000000] font-mono-num">{formatCC(car.engine_cc)}</span>
               </div>
-              <div className="p-3 rounded-xl bg-stone-50 border border-stone-100 space-y-0.5">
-                <span className="text-stone-500 block text-[10px]">Fuel & Powertrain</span>
-                <span className="font-bold text-stone-900 capitalize">{car.fuel_type || 'Petrol'}</span>
+              <div className="p-3 rounded-xl bg-[#FFFFFF] border border-[#000000]/10 space-y-0.5">
+                <span className="text-[#295135] block text-[10px]">Fuel & Powertrain</span>
+                <span className="font-bold text-[#000000] capitalize">{car.fuel_type || 'Petrol'}</span>
               </div>
-              <div className="p-3 rounded-xl bg-stone-50 border border-stone-100 space-y-0.5">
-                <span className="text-stone-500 block text-[10px]">Drivetrain</span>
-                <span className="font-bold text-stone-900">{car.drive_type || '2WD'}</span>
+              <div className="p-3 rounded-xl bg-[#FFFFFF] border border-[#000000]/10 space-y-0.5">
+                <span className="text-[#295135] block text-[10px]">Drivetrain</span>
+                <span className="font-bold text-[#000000]">{car.drive_type || '2WD'}</span>
               </div>
-              <div className="p-3 rounded-xl bg-stone-50 border border-stone-100 space-y-0.5">
-                <span className="text-stone-500 block text-[10px]">Transmission</span>
-                <span className="font-bold text-stone-900 capitalize">{car.transmission || 'Automatic'}</span>
+              <div className="p-3 rounded-xl bg-[#FFFFFF] border border-[#000000]/10 space-y-0.5">
+                <span className="text-[#295135] block text-[10px]">Transmission</span>
+                <span className="font-bold text-[#000000] capitalize">{car.transmission || 'Automatic'}</span>
               </div>
             </div>
 
             {/* Key Features Pill Cloud */}
             {car.features && car.features.length > 0 && (
-              <div className="pt-3 border-t border-stone-100">
-                <span className="text-xs font-semibold text-stone-500 block mb-2">Equipped Options:</span>
+              <div className="pt-3 border-t border-[#000000]/10">
+                <span className="text-xs font-semibold text-[#295135] block mb-2">Equipped Options:</span>
                 <div className="flex flex-wrap gap-2">
                   {car.features.map((feat, i) => (
                     <span
                       key={i}
-                      className="px-2.5 py-1 rounded-lg bg-stone-100 text-stone-700 text-[11px] font-medium border border-stone-200 flex items-center gap-1.5"
+                      className="px-2.5 py-1 rounded-lg bg-[#FFFFFF] text-[#000000] text-[11px] font-medium border border-[#000000]/15 flex items-center gap-1.5"
                     >
-                      <CheckCircle2 className="w-3 h-3 text-[#0E402D]" />
+                      <CheckCircle2 className="w-3 h-3 text-[#000000]" />
                       {feat}
                     </span>
                   ))}
@@ -279,37 +292,50 @@ Exchange Rate: 1 USD = ${breakdown.usd_kes_rate} KES
         {/* Right Column: Pricing, Landed Cost Breakdown, Savings */}
         <div className="lg:col-span-5 space-y-6">
           {/* Header Title Card */}
-          <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-2xs space-y-5">
+          <div className="p-6 rounded-2xl bg-white border border-[#000000]/15 shadow-2xs space-y-5">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-semibold text-stone-400 uppercase tracking-wider">{car.make}</span>
-                <span className="text-stone-300">•</span>
-                <span className="text-xs text-stone-500">{car.body_type?.toUpperCase() || 'VEHICLE'}</span>
+                <span className="text-xs font-semibold text-[#295135] uppercase tracking-wider">{car.make}</span>
+                <span className="text-[#000000]/30">•</span>
+                <span className="text-xs text-[#295135]">{car.body_type?.toUpperCase() || 'VEHICLE'}</span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-stone-900 font-display tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-[#000000] font-display tracking-tight">
                 {car.year} {car.make} {car.model}
               </h1>
             </div>
 
             {/* Dual Price Spotlight */}
-            <div className="p-4 rounded-xl bg-stone-50 border border-stone-200 space-y-3">
-              <div className="flex items-baseline justify-between border-b border-stone-200/80 pb-2">
-                <span className="text-xs text-stone-500 font-medium">Japan CIF / FOB Price:</span>
-                <span className="text-lg font-bold font-mono-num text-stone-900">
-                  {formatUSD(car.price_usd)}
-                  <span className="text-xs text-stone-500 ml-1">
-                    (≈ {formatKES((car.price_usd || 0) * usdKesRate)})
-                  </span>
-                </span>
-              </div>
+            <div className="p-4 rounded-xl bg-[#FFFFFF] border border-[#000000]/15 space-y-3">
+              {isImport ? (
+                <>
+                  <div className="flex items-baseline justify-between border-b border-[#000000]/15 pb-2">
+                    <span className="text-xs text-[#295135] font-medium">Japan CIF / FOB Price:</span>
+                    <span className="text-lg font-bold font-mono-num text-[#000000]">
+                      {formatUSD(car.price_usd)}
+                      <span className="text-xs text-[#295135] ml-1">
+                        (≈ {formatKES((car.price_usd || 0) * usdKesRate)})
+                      </span>
+                    </span>
+                  </div>
 
-              {breakdown && (
+                  {breakdown && (
+                    <div className="flex items-baseline justify-between pt-1">
+                      <span className="text-xs font-bold text-[#000000] flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5 text-[#000000]" /> Total Landed Nairobi:
+                      </span>
+                      <span className="text-2xl font-black font-mono-num text-[#000000]">
+                        {formatKES(breakdown.total_import_kes)}
+                      </span>
+                    </div>
+                  )}
+                </>
+              ) : (
                 <div className="flex items-baseline justify-between pt-1">
-                  <span className="text-xs font-bold text-stone-700 flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5 text-[#0E402D]" /> Total Landed Nairobi:
+                  <span className="text-xs font-bold text-[#000000] flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#295135]" /> Showroom Price:
                   </span>
                   <span className="text-2xl font-black font-mono-num text-[#000000]">
-                    {formatKES(breakdown.total_import_kes)}
+                    {formatKES(car.price_kes)}
                   </span>
                 </div>
               )}
@@ -320,87 +346,89 @@ Exchange Rate: 1 USD = ${breakdown.usd_kes_rate} KES
               <div className="p-4 rounded-xl bg-[#000000] text-white space-y-2 text-xs shadow-xs">
                 <div className="flex items-center justify-between font-bold text-white">
                   <span className="flex items-center gap-1.5">
-                    <TrendingDown className="w-4 h-4 text-[#9FCC2E]" />
+                    <TrendingDown className="w-4 h-4 text-[#6BD425]" />
                     Direct Import Savings
                   </span>
-                  <span className="px-2 py-0.5 rounded-md bg-[#0E402D] text-[#9FCC2E] font-mono-num border border-[#0E402D]">
+                  <span className="px-2 py-0.5 rounded-md bg-[#295135] text-[#6BD425] font-mono-num border border-[#6BD425]/30">
                     Save {comparison.saving_pct}%
                   </span>
                 </div>
-                <p className="text-stone-300 leading-relaxed text-[11px]">
+                <p className="text-white/80 leading-relaxed text-[11px]">
                   Similar {car.year} {car.make} {car.model} units average{' '}
                   <strong className="text-white font-mono-num">{formatKES(comparison.local.median_kes)}</strong> in Nairobi showrooms. Direct import saves approx{' '}
-                  <strong className="text-[#9FCC2E] font-mono-num">{formatKES(comparison.saving_kes)}</strong> net!
+                  <strong className="text-[#6BD425] font-mono-num">{formatKES(comparison.saving_kes)}</strong> net!
                 </p>
               </div>
             )}
 
             {/* Action Buttons */}
-            <div className={`grid ${car.url ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'} gap-2.5 pt-1`}>
+            <div className={`grid ${isImport && car.url ? 'grid-cols-1 sm:grid-cols-3' : isImport ? 'grid-cols-2' : car.url ? 'grid-cols-2' : 'grid-cols-1'} gap-2.5 pt-1`}>
               <button
                 onClick={handleCopyQuote}
-                className="py-2.5 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 font-semibold text-xs transition-colors border border-stone-200 flex items-center justify-center gap-1.5"
+                className="py-2.5 px-3 rounded-xl bg-[#FFFFFF] hover:bg-[#000000]/10 text-[#000000] font-semibold text-xs transition-colors border border-[#000000]/20 flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                <span>{copied ? 'Quote Copied!' : 'Copy Quote'}</span>
+                {copied ? <Check className="w-4 h-4 text-[#000000]" /> : <Copy className="w-4 h-4 text-[#295135]" />}
+                <span>{copied ? 'Copied!' : 'Copy Quote'}</span>
               </button>
 
-              <button
-                onClick={() => openDutyModal(car)}
-                className="py-2.5 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 font-semibold text-xs transition-colors border border-stone-200 flex items-center justify-center gap-1.5"
-              >
-                <Calculator className="w-3.5 h-3.5 text-stone-600" />
-                <span>Duty Breakdown</span>
-              </button>
+              {isImport && (
+                <button
+                  onClick={() => openDutyModal(car)}
+                  className="py-2.5 px-3 rounded-xl bg-[#FFFFFF] hover:bg-[#000000]/10 text-[#000000] font-semibold text-xs transition-colors border border-[#000000]/20 flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Calculator className="w-3.5 h-3.5 text-[#000000]" />
+                  <span>Duty Breakdown</span>
+                </button>
+              )}
 
               {car.url && (
                 <a
                   href={car.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="py-2.5 px-3 rounded-xl bg-[#0E402D] hover:bg-[#295135] text-white font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5"
+                  className="py-2.5 px-3 rounded-xl bg-[#000000] hover:bg-[#295135] text-white font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5"
                 >
-                  <ExternalLink className="w-3.5 h-3.5 text-[#9FCC2E]" />
+                  <ExternalLink className="w-3.5 h-3.5 text-[#6BD425]" />
                   <span>Original Site</span>
                 </a>
               )}
             </div>
           </div>
 
-          {/* KRA Tax Schedule Breakdown Sheet */}
-          {breakdown && (
-            <div className="p-5 rounded-2xl bg-white border border-stone-200 shadow-2xs space-y-3">
-              <div className="flex items-center justify-between border-b border-stone-100 pb-2">
-                <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider font-display">
+          {/* KRA Tax Schedule Breakdown Sheet — import listings only */}
+          {isImport && breakdown && (
+            <div className="p-5 rounded-2xl bg-white border border-[#000000]/15 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between border-b border-[#000000]/10 pb-2">
+                <h3 className="text-xs font-bold text-[#000000] uppercase tracking-wider font-display">
                   KRA Tax Itemization (2024 Schedule)
                 </h3>
-                <span className="text-[10px] text-stone-500 font-mono-num">1 USD = {breakdown.usd_kes_rate} KES</span>
+                <span className="text-[10px] text-[#295135] font-mono-num">1 USD = {breakdown.usd_kes_rate} KES</span>
               </div>
 
               <div className="space-y-2 text-xs">
-                <div className="flex justify-between text-stone-600">
+                <div className="flex justify-between text-[#295135]">
                   <span>Customs Duty (25%):</span>
-                  <span className="font-mono-num font-semibold text-stone-900">{formatKES(breakdown.customs_duty_kes)}</span>
+                  <span className="font-mono-num font-semibold text-[#000000]">{formatKES(breakdown.customs_duty_kes)}</span>
                 </div>
-                <div className="flex justify-between text-stone-600">
+                <div className="flex justify-between text-[#295135]">
                   <span>Excise Duty (20%):</span>
-                  <span className="font-mono-num font-semibold text-stone-900">{formatKES(breakdown.excise_duty_kes)}</span>
+                  <span className="font-mono-num font-semibold text-[#000000]">{formatKES(breakdown.excise_duty_kes)}</span>
                 </div>
-                <div className="flex justify-between text-stone-600">
+                <div className="flex justify-between text-[#295135]">
                   <span>Value Added Tax (16%):</span>
-                  <span className="font-mono-num font-semibold text-stone-900">{formatKES(breakdown.vat_kes)}</span>
+                  <span className="font-mono-num font-semibold text-[#000000]">{formatKES(breakdown.vat_kes)}</span>
                 </div>
-                <div className="flex justify-between text-stone-600">
+                <div className="flex justify-between text-[#295135]">
                   <span>IDF & RDL Levies (5.5%):</span>
-                  <span className="font-mono-num font-semibold text-stone-900">{formatKES(breakdown.idf_levy_kes + breakdown.rdl_levy_kes)}</span>
+                  <span className="font-mono-num font-semibold text-[#000000]">{formatKES(breakdown.idf_levy_kes + breakdown.rdl_levy_kes)}</span>
                 </div>
-                <div className="flex justify-between text-stone-600">
+                <div className="flex justify-between text-[#295135]">
                   <span>Mombasa CFS & Port Charges:</span>
-                  <span className="font-mono-num font-semibold text-stone-900">{formatKES(breakdown.port_cfs_kes)}</span>
+                  <span className="font-mono-num font-semibold text-[#000000]">{formatKES(breakdown.port_cfs_kes)}</span>
                 </div>
-                <div className="flex justify-between text-stone-600">
+                <div className="flex justify-between text-[#295135]">
                   <span>Clearing & NTSA Plates:</span>
-                  <span className="font-mono-num font-semibold text-stone-900">{formatKES(breakdown.clearing_agent_kes + breakdown.ntsa_inspection_kes + breakdown.number_plates_kes)}</span>
+                  <span className="font-mono-num font-semibold text-[#000000]">{formatKES(breakdown.clearing_agent_kes + breakdown.ntsa_inspection_kes + breakdown.number_plates_kes)}</span>
                 </div>
               </div>
             </div>
@@ -408,13 +436,14 @@ Exchange Rate: 1 USD = ${breakdown.usd_kes_rate} KES
         </div>
       </div>
 
-      {/* 5-Stage Import Journey Roadmap */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-white border border-stone-200 shadow-2xs space-y-6">
+      {/* 5-Stage Import Journey Roadmap — import listings only */}
+      {isImport && (
+      <div className="p-6 sm:p-8 rounded-3xl bg-white border border-[#000000]/15 shadow-2xs space-y-6">
         <div className="flex items-center gap-2.5">
-          <Anchor className="w-5 h-5 text-[#0E402D]" />
+          <Anchor className="w-5 h-5 text-[#000000]" />
           <div>
-            <h3 className="text-lg font-bold text-stone-900 font-display">Step-by-Step Japan to Kenya Import Roadmap</h3>
-            <p className="text-xs text-stone-500">How your vehicle moves from auction yard in Japan to delivery in Nairobi</p>
+            <h3 className="text-lg font-bold text-[#000000] font-display">Step-by-Step Japan to Kenya Import Roadmap</h3>
+            <p className="text-xs text-[#295135]">How your vehicle moves from auction yard in Japan to delivery in Nairobi</p>
           </div>
         </div>
 
@@ -451,17 +480,18 @@ Exchange Rate: 1 USD = ${breakdown.usd_kes_rate} KES
               duration: '1–2 Days',
             },
           ].map((s, idx) => (
-            <div key={idx} className="p-4 rounded-2xl bg-stone-50 border border-stone-100 space-y-2">
+            <div key={idx} className="p-4 rounded-2xl bg-[#FFFFFF] border border-[#000000]/10 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-extrabold text-[#0E402D] font-mono-num">STAGE {s.step}</span>
-                <span className="text-[10px] text-stone-400 font-medium">{s.duration}</span>
+                <span className="text-xs font-extrabold text-[#000000] font-mono-num">STAGE {s.step}</span>
+                <span className="text-[10px] text-[#295135] font-medium">{s.duration}</span>
               </div>
-              <h4 className="font-bold text-stone-900 text-sm font-display">{s.title}</h4>
-              <p className="text-xs text-stone-500 leading-relaxed">{s.desc}</p>
+              <h4 className="font-bold text-[#000000] text-sm font-display">{s.title}</h4>
+              <p className="text-xs text-[#295135] leading-relaxed">{s.desc}</p>
             </div>
           ))}
         </div>
       </div>
+      )}
     </div>
   );
 };
